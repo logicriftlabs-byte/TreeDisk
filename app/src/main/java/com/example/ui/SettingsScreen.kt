@@ -1,13 +1,13 @@
 package com.example.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.DeleteSweep
@@ -25,21 +25,19 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.StorageViewModel
-import com.example.ui.theme.StorageGreen
-import com.example.ui.theme.StorageOrange
-import com.example.ui.theme.StorageRed
+import com.example.ui.theme.*
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(viewModel: StorageViewModel) {
     val includeHidden by viewModel.includeHiddenFiles.collectAsState()
@@ -56,6 +54,7 @@ fun SettingsScreen(viewModel: StorageViewModel) {
     val scope = rememberCoroutineScope()
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { innerPadding ->
         LazyColumn(
@@ -63,97 +62,119 @@ fun SettingsScreen(viewModel: StorageViewModel) {
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
                 .padding(innerPadding)
-                .padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp)
+                .padding(horizontal = 20.dp),
+            contentPadding = PaddingValues(top = 20.dp, bottom = 100.dp)
         ) {
-            // Header
+            // Apple Header
             item {
-                Column(modifier = Modifier.padding(bottom = 16.dp)) {
+                Column(modifier = Modifier.padding(bottom = 20.dp)) {
                     Text(
                         text = "Settings",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        letterSpacing = (-0.5).sp
                     )
                     Text(
-                        text = "Preferences & Storage Diagnostics",
-                        style = MaterialTheme.typography.bodySmall,
+                        text = "Preferences & System Storage Diagnostics",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
 
-            // Section 1: Storage Scanner & Filters
+            // Section 1: SCANNER & FILTERS
             item {
-                SettingsSectionHeader("SCANNER & FILTERS")
+                CupertinoSectionHeader("SCANNER & FILTERS")
 
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(22.dp))
+                        .border(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(22.dp)
+                        ),
+                    shape = RoundedCornerShape(22.dp),
+                    color = MaterialTheme.colorScheme.surface
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        // Switch 1: Include Hidden Files
-                        SettingsSwitchRow(
+                        CupertinoSwitchRow(
                             icon = Icons.Default.Visibility,
+                            iconBg = AppleBlue,
                             title = "Include Hidden Files",
-                            subtitle = "Include dotfiles (.git, .cache, .DS_Store)",
+                            subtitle = "Scan dotfiles (.git, .cache, .DS_Store)",
                             checked = includeHidden,
                             onCheckedChange = { viewModel.setIncludeHiddenFiles(it) }
                         )
 
                         HorizontalDivider(
                             modifier = Modifier.padding(vertical = 12.dp),
-                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
                         )
 
-                        // Switch 2: Ignore Android System Cache
-                        SettingsSwitchRow(
+                        CupertinoSwitchRow(
                             icon = Icons.Default.FolderSpecial,
+                            iconBg = ApplePurple,
                             title = "Ignore Android System Cache",
-                            subtitle = "Skip restricted /Android/data system files",
+                            subtitle = "Skip restricted /Android/data folders",
                             checked = ignoreSystem,
                             onCheckedChange = { viewModel.setIgnoreSystemCache(it) }
                         )
 
                         HorizontalDivider(
                             modifier = Modifier.padding(vertical = 12.dp),
-                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
                         )
 
-                        // Filter Chips: Minimum File Size
+                        // Segmented Control Filter Row
                         Column {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.FilterList,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(RoundedCornerShape(9.dp))
+                                        .background(AppleOrange.copy(alpha = 0.15f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.FilterList,
+                                        contentDescription = null,
+                                        tint = AppleOrange,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column {
                                     Text(
                                         text = "Minimum File Size Filter",
-                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontSize = 15.sp,
                                         fontWeight = FontWeight.SemiBold,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
-                                        text = "Only scan files exceeding selected size",
-                                        style = MaterialTheme.typography.bodySmall,
+                                        text = "Index files exceeding size threshold",
+                                        fontSize = 12.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
 
+                            // Cupertino Segmented Bar
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    .padding(3.dp),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 val options = listOf(
-                                    0 to "All Files",
+                                    0 to "All",
                                     1 to "> 1 MB",
                                     10 to "> 10 MB",
                                     50 to "> 50 MB"
@@ -161,21 +182,24 @@ fun SettingsScreen(viewModel: StorageViewModel) {
 
                                 options.forEach { (mb, label) ->
                                     val isSelected = minSizeMb == mb
-                                    FilterChip(
-                                        selected = isSelected,
-                                        onClick = { viewModel.setMinFileSizeMb(mb) },
-                                        label = {
-                                            Text(
-                                                text = label,
-                                                fontSize = 11.sp,
-                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clip(RoundedCornerShape(9.dp))
+                                            .background(
+                                                if (isSelected) AppleBlue else Color.Transparent
                                             )
-                                        },
-                                        colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                                            .clickable { viewModel.setMinFileSizeMb(mb) }
+                                            .padding(vertical = 8.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = label,
+                                            fontSize = 12.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
                                         )
-                                    )
+                                    }
                                 }
                             }
                         }
@@ -183,20 +207,27 @@ fun SettingsScreen(viewModel: StorageViewModel) {
                 }
             }
 
-            // Section 2: Storage Threshold & Alerts
+            // Section 2: ALERTS & AUTOMATION
             item {
-                Spacer(modifier = Modifier.height(20.dp))
-                SettingsSectionHeader("ALERTS & AUTOMATION")
+                Spacer(modifier = Modifier.height(24.dp))
+                CupertinoSectionHeader("ALERTS & AUTOMATION")
 
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(22.dp))
+                        .border(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(22.dp)
+                        ),
+                    shape = RoundedCornerShape(22.dp),
+                    color = MaterialTheme.colorScheme.surface
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        // Switch: Auto Scan on Launch
-                        SettingsSwitchRow(
+                        CupertinoSwitchRow(
                             icon = Icons.Default.SettingsSuggest,
+                            iconBg = AppleTeal,
                             title = "Auto Scan on Launch",
                             subtitle = "Automatically index storage when app opens",
                             checked = autoScan,
@@ -205,10 +236,10 @@ fun SettingsScreen(viewModel: StorageViewModel) {
 
                         HorizontalDivider(
                             modifier = Modifier.padding(vertical = 12.dp),
-                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
                         )
 
-                        // Slider: Warning Threshold
+                        // Slider Row
                         Column {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -216,35 +247,43 @@ fun SettingsScreen(viewModel: StorageViewModel) {
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Default.NotificationsActive,
-                                        contentDescription = null,
-                                        tint = StorageOrange,
-                                        modifier = Modifier.size(20.dp)
-                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .clip(RoundedCornerShape(9.dp))
+                                            .background(AppleYellow.copy(alpha = 0.15f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.NotificationsActive,
+                                            contentDescription = null,
+                                            tint = AppleYellow,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Text(
                                         text = "High Storage Alert",
-                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontSize = 15.sp,
                                         fontWeight = FontWeight.SemiBold,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                 }
                                 Text(
                                     text = "$threshold% Full",
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = StorageOrange
+                                    color = AppleYellow
                                 )
                             }
                             Text(
-                                text = "Highlight storage card when capacity exceeds threshold",
-                                style = MaterialTheme.typography.bodySmall,
+                                text = "Highlight gauge when capacity exceeds threshold",
+                                fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(start = 32.dp, top = 2.dp)
+                                modifier = Modifier.padding(start = 44.dp, top = 2.dp)
                             )
 
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(10.dp))
 
                             Slider(
                                 value = threshold.toFloat(),
@@ -252,8 +291,9 @@ fun SettingsScreen(viewModel: StorageViewModel) {
                                 valueRange = 60f..95f,
                                 steps = 6,
                                 colors = SliderDefaults.colors(
-                                    thumbColor = StorageOrange,
-                                    activeTrackColor = StorageOrange
+                                    thumbColor = AppleYellow,
+                                    activeTrackColor = AppleYellow,
+                                    inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
                                 )
                             )
                         }
@@ -261,18 +301,25 @@ fun SettingsScreen(viewModel: StorageViewModel) {
                 }
             }
 
-            // Section 3: Storage Maintenance Operations
+            // Section 3: MAINTENANCE & ACTIONS
             item {
-                Spacer(modifier = Modifier.height(20.dp))
-                SettingsSectionHeader("MAINTENANCE & ACTIONS")
+                Spacer(modifier = Modifier.height(24.dp))
+                CupertinoSectionHeader("MAINTENANCE")
 
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(22.dp))
+                        .border(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(22.dp)
+                        ),
+                    shape = RoundedCornerShape(22.dp),
+                    color = MaterialTheme.colorScheme.surface
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        // Force Rescan Row
+                        // Re-index
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -281,26 +328,34 @@ fun SettingsScreen(viewModel: StorageViewModel) {
                                     if (!isScanning) {
                                         viewModel.scanStorage()
                                         scope.launch {
-                                            snackbarHostState.showSnackbar("Storage scan completed")
+                                            snackbarHostState.showSnackbar("Storage scan triggered")
                                         }
                                     }
                                 }
-                                .padding(vertical = 8.dp),
+                                .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.Refresh,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(RoundedCornerShape(9.dp))
+                                        .background(AppleBlue.copy(alpha = 0.15f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Refresh,
+                                        contentDescription = null,
+                                        tint = AppleBlue,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column {
                                     Text(
                                         text = "Re-index Storage",
-                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontSize = 15.sp,
                                         fontWeight = FontWeight.SemiBold,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
@@ -313,7 +368,7 @@ fun SettingsScreen(viewModel: StorageViewModel) {
                                         } else {
                                             "Not scanned yet"
                                         },
-                                        style = MaterialTheme.typography.bodySmall,
+                                        fontSize = 12.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
@@ -322,7 +377,7 @@ fun SettingsScreen(viewModel: StorageViewModel) {
                             if (isScanning) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(18.dp),
-                                    color = MaterialTheme.colorScheme.primary,
+                                    color = AppleBlue,
                                     strokeWidth = 2.dp
                                 )
                             } else {
@@ -330,50 +385,59 @@ fun SettingsScreen(viewModel: StorageViewModel) {
                                     onClick = {
                                         viewModel.scanStorage()
                                         scope.launch {
-                                            snackbarHostState.showSnackbar("Storage re-indexed successfully")
+                                            snackbarHostState.showSnackbar("Storage re-indexed")
                                         }
                                     },
-                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                                    shape = RoundedCornerShape(12.dp)
+                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                                    shape = CircleShape,
+                                    colors = ButtonDefaults.buttonColors(containerColor = AppleBlue)
                                 ) {
-                                    Text("Re-scan", fontSize = 12.sp)
+                                    Text("Re-scan", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
 
                         HorizontalDivider(
                             modifier = Modifier.padding(vertical = 12.dp),
-                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
                         )
 
-                        // Clear Cache Row
+                        // Clear Cache
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
                                 .clickable { showClearDialog = true }
-                                .padding(vertical = 8.dp),
+                                .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.DeleteSweep,
-                                    contentDescription = null,
-                                    tint = StorageRed,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(RoundedCornerShape(9.dp))
+                                        .background(AppleRed.copy(alpha = 0.15f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.DeleteSweep,
+                                        contentDescription = null,
+                                        tint = AppleRed,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column {
                                     Text(
                                         text = "Clear Scan Cache",
-                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontSize = 15.sp,
                                         fontWeight = FontWeight.SemiBold,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
-                                        text = "Reset cached directory size memory",
-                                        style = MaterialTheme.typography.bodySmall,
+                                        text = "Reset cached directory memory",
+                                        fontSize = 12.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
@@ -381,52 +445,67 @@ fun SettingsScreen(viewModel: StorageViewModel) {
 
                             OutlinedButton(
                                 onClick = { showClearDialog = true },
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = StorageRed)
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                                shape = CircleShape,
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = AppleRed),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, AppleRed)
                             ) {
-                                Text("Clear", fontSize = 12.sp)
+                                Text("Clear", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
                 }
             }
 
-            // Section 4: System Diagnostics & About
+            // Section 4: DIAGNOSTICS & ABOUT
             item {
-                Spacer(modifier = Modifier.height(20.dp))
-                SettingsSectionHeader("DIAGNOSTICS & ABOUT")
+                Spacer(modifier = Modifier.height(24.dp))
+                CupertinoSectionHeader("ABOUT & SYSTEM")
 
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(22.dp))
+                        .border(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(22.dp)
+                        ),
+                    shape = RoundedCornerShape(22.dp),
+                    color = MaterialTheme.colorScheme.surface
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        // Storage Access Badge
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.Security,
-                                    contentDescription = null,
-                                    tint = StorageGreen,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(RoundedCornerShape(9.dp))
+                                        .background(AppleMint.copy(alpha = 0.15f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Security,
+                                        contentDescription = null,
+                                        tint = AppleMint,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column {
                                     Text(
                                         text = "Storage Access Status",
-                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontSize = 15.sp,
                                         fontWeight = FontWeight.SemiBold,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
                                         text = "/storage/emulated/0",
-                                        style = MaterialTheme.typography.bodySmall,
+                                        fontSize = 12.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
@@ -434,51 +513,59 @@ fun SettingsScreen(viewModel: StorageViewModel) {
 
                             Box(
                                 modifier = Modifier
-                                    .background(StorageGreen.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(AppleMint.copy(alpha = 0.15f))
                                     .padding(horizontal = 10.dp, vertical = 4.dp)
                             ) {
                                 Text(
                                     text = "GRANTED",
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = StorageGreen
+                                    color = AppleMint
                                 )
                             }
                         }
 
                         HorizontalDivider(
                             modifier = Modifier.padding(vertical = 12.dp),
-                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
                         )
 
-                        // About App Row
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
                                 .clickable { showAboutDialog = true }
-                                .padding(vertical = 8.dp),
+                                .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.Info,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(RoundedCornerShape(9.dp))
+                                        .background(AppleIndigo.copy(alpha = 0.15f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Info,
+                                        contentDescription = null,
+                                        tint = AppleIndigo,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column {
                                     Text(
                                         text = "About TreeDisk",
-                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontSize = 15.sp,
                                         fontWeight = FontWeight.SemiBold,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
                                         text = "Version 1.2.0 • Jetpack Compose",
-                                        style = MaterialTheme.typography.bodySmall,
+                                        fontSize = 12.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
@@ -497,13 +584,12 @@ fun SettingsScreen(viewModel: StorageViewModel) {
         }
     }
 
-    // Confirmation Dialog for Clearing Cache
     if (showClearDialog) {
         AlertDialog(
             onDismissRequest = { showClearDialog = false },
-            icon = { Icon(Icons.Default.CleaningServices, contentDescription = null, tint = StorageRed) },
+            icon = { Icon(Icons.Default.CleaningServices, contentDescription = null, tint = AppleRed) },
             title = { Text("Clear Scan Cache?") },
-            text = { Text("This will reset current storage index and statistics from memory. You can run a new scan at any time.") },
+            text = { Text("This will reset current storage index memory. You can re-scan anytime.") },
             confirmButton = {
                 Button(
                     onClick = {
@@ -513,7 +599,7 @@ fun SettingsScreen(viewModel: StorageViewModel) {
                             snackbarHostState.showSnackbar("Scan cache cleared")
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = StorageRed)
+                    colors = ButtonDefaults.buttonColors(containerColor = AppleRed)
                 ) {
                     Text("Clear Cache")
                 }
@@ -526,23 +612,22 @@ fun SettingsScreen(viewModel: StorageViewModel) {
         )
     }
 
-    // About TreeDisk Dialog
     if (showAboutDialog) {
         AlertDialog(
             onDismissRequest = { showAboutDialog = false },
-            icon = { Icon(Icons.Default.Storage, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+            icon = { Icon(Icons.Default.Storage, contentDescription = null, tint = AppleBlue) },
             title = { Text("TreeDisk v1.2.0") },
             text = {
                 Column {
                     Text(
-                        text = "TreeDisk is a modern Android storage analytics & directory visualizer built with Jetpack Compose.",
-                        style = MaterialTheme.typography.bodyMedium,
+                        text = "TreeDisk is a modern storage visualizer with Cupertino design elements, powered by Jetpack Compose.",
+                        fontSize = 14.sp,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "• Interactive Directory Hierarchy Tree\n• Dynamic Category Breakdown\n• Top Size Files Finder\n• Material Design 3 Styling",
-                        style = MaterialTheme.typography.bodySmall,
+                        text = "• Interactive Directory Tree\n• Category Breakdown\n• Floating Glass Navigation Bar\n• Apple SF System Styling",
+                        fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -557,20 +642,39 @@ fun SettingsScreen(viewModel: StorageViewModel) {
 }
 
 @Composable
-fun SettingsSectionHeader(title: String) {
-    Text(
-        text = title,
-        fontSize = 12.sp,
-        fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.primary,
-        letterSpacing = 1.sp,
-        modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp)
-    )
+fun CupertinoSectionHeader(
+    title: String,
+    rightText: String? = null
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = title,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            letterSpacing = 1.2.sp
+        )
+        if (rightText != null) {
+            Text(
+                text = rightText,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
 }
 
 @Composable
-fun SettingsSwitchRow(
+fun CupertinoSwitchRow(
     icon: ImageVector,
+    iconBg: Color,
     title: String,
     subtitle: String,
     checked: Boolean,
@@ -589,23 +693,31 @@ fun SettingsSwitchRow(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.weight(1f)
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(20.dp)
-            )
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(RoundedCornerShape(9.dp))
+                    .background(iconBg.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconBg,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
             Spacer(modifier = Modifier.width(12.dp))
             Column {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.bodyMedium,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
+                    fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -614,8 +726,10 @@ fun SettingsSwitchRow(
             checked = checked,
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
-                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                checkedTrackColor = MaterialTheme.colorScheme.primary
+                checkedThumbColor = Color.White,
+                checkedTrackColor = AppleBlue,
+                uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
             )
         )
     }

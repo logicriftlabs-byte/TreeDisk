@@ -2,6 +2,7 @@ package com.example.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -30,6 +31,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
@@ -42,6 +44,7 @@ import com.example.FileCategory
 import com.example.StorageNode
 import com.example.StorageViewModel
 import com.example.Utils
+import com.example.ui.theme.*
 
 @Composable
 fun DashboardScreen(viewModel: StorageViewModel) {
@@ -55,83 +58,110 @@ fun DashboardScreen(viewModel: StorageViewModel) {
 
     val scannedTotalSize = categoryStats.sumOf { it.size }.coerceAtLeast(1L)
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp)
-    ) {
-        // 1. App Header with Fluent Scan Button
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background
+    ) { innerPadding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(innerPadding)
+                .padding(horizontal = 20.dp),
+            contentPadding = PaddingValues(top = 20.dp, bottom = 100.dp)
+        ) {
+        // 1. Apple Header with Glass Pill Action Button
         item {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 16.dp),
+                    .padding(bottom = 20.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
                     Text(
-                        text = "TreeDisk",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        text = "Dashboard",
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        letterSpacing = (-0.5).sp
                     )
                     Text(
-                        text = "Storage Analytics & Hierarchy",
-                        style = MaterialTheme.typography.bodySmall,
+                        text = "Storage & Visual Analytics",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
+                // Cupertino Glass Action Pill Button
                 Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = CircleShape,
+                    color = AppleBlue.copy(alpha = 0.12f),
                     modifier = Modifier
-                        .clip(RoundedCornerShape(20.dp))
+                        .clip(CircleShape)
+                        .border(
+                            width = 1.dp,
+                            color = AppleBlue.copy(alpha = 0.3f),
+                            shape = CircleShape
+                        )
                         .clickable {
                             if (!isScanning) viewModel.scanStorage()
                         }
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         if (isScanning) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(14.dp),
-                                color = MaterialTheme.colorScheme.primary,
+                                color = AppleBlue,
                                 strokeWidth = 2.dp
                             )
                         } else {
                             Icon(
                                 imageVector = Icons.Default.Refresh,
                                 contentDescription = "Scan Storage",
-                                modifier = Modifier.size(16.dp),
-                                tint = MaterialTheme.colorScheme.primary
+                                modifier = Modifier.size(15.dp),
+                                tint = AppleBlue
                             )
                         }
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = if (isScanning) "Scanning..." else "Scan Storage",
-                            fontSize = 12.sp,
+                            text = if (isScanning) "Scanning" else "Scan",
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.primary
+                            color = AppleBlue
                         )
                     }
                 }
             }
         }
 
-        // 2. Storage Overview Card with Dynamic Segment Bar
+        // Section 1: STORAGE OVERVIEW
         item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(28.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            CupertinoSectionHeader("STORAGE OVERVIEW")
+
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(26.dp))
+                    .border(
+                        width = 1.dp,
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                                MaterialTheme.colorScheme.outline.copy(alpha = 0.08f)
+                            )
+                        ),
+                        shape = RoundedCornerShape(26.dp)
+                    ),
+                shape = RoundedCornerShape(26.dp),
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = 2.dp
             ) {
-                Column(modifier = Modifier.padding(24.dp)) {
+                Column(modifier = Modifier.padding(22.dp)) {
                     val percentage = if (totalSpace > 0) (usedSpace * 100 / totalSpace).toInt() else 0
 
                     Row(
@@ -141,45 +171,57 @@ fun DashboardScreen(viewModel: StorageViewModel) {
                     ) {
                         Column {
                             Text(
-                                text = "Internal Storage",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                text = "INTERNAL STORAGE",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                letterSpacing = 1.2.sp
                             )
-                            Spacer(modifier = Modifier.height(4.dp))
+                            Spacer(modifier = Modifier.height(6.dp))
                             Row(verticalAlignment = Alignment.Bottom) {
                                 Text(
                                     text = Utils.formatSize(usedSpace).substringBefore(" "),
-                                    fontSize = 28.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    fontSize = 32.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    letterSpacing = (-0.5).sp
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
                                     text = "${Utils.formatSize(usedSpace).substringAfter(" ")} / ${Utils.formatSize(totalSpace)}",
-                                    fontSize = 16.sp,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(bottom = 4.dp)
                                 )
                             }
                         }
-                        Text(
-                            text = "$percentage% Full",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(bottom = 6.dp)
-                        )
+
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(AppleBlue.copy(alpha = 0.15f))
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = "$percentage% Used",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = AppleBlue
+                            )
+                        }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
 
-                    // Dynamic Multi-segmented Storage Progress Bar
+                    // Cupertino Multi-Segment Storage Progress Capsule Bar
                     val trackColor = MaterialTheme.colorScheme.surfaceVariant
-                    val primaryColor = MaterialTheme.colorScheme.primary
+                    val primaryColor = AppleBlue
+
                     Canvas(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(14.dp)
+                            .height(16.dp)
                             .clip(RoundedCornerShape(12.dp))
                     ) {
                         drawRoundRect(
@@ -194,7 +236,7 @@ fun DashboardScreen(viewModel: StorageViewModel) {
                                 val segmentWidth = size.width * fraction
                                 if (segmentWidth > 0f) {
                                     drawRoundRect(
-                                        color = stat.category.color,
+                                        color = getAppleCategoryColor(stat.category),
                                         topLeft = Offset(currentX, 0f),
                                         size = Size(segmentWidth, size.height),
                                         cornerRadius = CornerRadius(12.dp.toPx(), 12.dp.toPx())
@@ -212,217 +254,106 @@ fun DashboardScreen(viewModel: StorageViewModel) {
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(18.dp))
 
-                    // Dynamic Legend Items Row
+                    // Dynamic Legend Pills
                     if (categoryStats.isNotEmpty()) {
                         LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(14.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             items(categoryStats) { stat ->
-                                DynamicLegendItem(
-                                    color = stat.category.color,
+                                CupertinoLegendItem(
+                                    color = getAppleCategoryColor(stat.category),
                                     label = stat.category.displayName,
                                     sizeText = Utils.formatSize(stat.size)
                                 )
                             }
                         }
-                    } else {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            DynamicLegendItem(FileCategory.VIDEOS.color, "VIDEOS", "0 B")
-                            DynamicLegendItem(FileCategory.IMAGES.color, "IMAGES", "0 B")
-                            DynamicLegendItem(FileCategory.AUDIO.color, "AUDIO", "0 B")
-                            DynamicLegendItem(FileCategory.DOCUMENTS.color, "DOCS", "0 B")
-                        }
                     }
                 }
             }
         }
 
-        // 3. Quick Storage Metrics Cards
+        // Section 2: SYSTEM STATS
         item {
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
+            CupertinoSectionHeader("SYSTEM STATS")
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // Free Space Card
-                Card(
+                // Widget 1: Available Free Space
+                CupertinoWidgetCard(
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Icon(
-                            imageVector = Icons.Default.SdCard,
-                            contentDescription = null,
-                            tint = FileCategory.DOCUMENTS.color,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "Free Space",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = Utils.formatSize(freeSpace),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                }
+                    icon = Icons.Default.SdCard,
+                    iconTint = AppleMint,
+                    label = "AVAILABLE",
+                    value = Utils.formatSize(freeSpace)
+                )
 
-                // Total Scanned Items Card
-                Card(
+                // Widget 2: Scanned Directory Nodes
+                CupertinoWidgetCard(
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Icon(
-                            imageVector = Icons.Default.Storage,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "Scanned Folders",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = "${rootNode?.childrenCount ?: 0} Items",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                }
+                    icon = Icons.Default.Storage,
+                    iconTint = AppleBlue,
+                    label = "INDEXED FOLDERS",
+                    value = "${rootNode?.childrenCount ?: 0} Folders"
+                )
             }
         }
 
-        // 4. Dynamic Categories Breakdown Section
+        // Section 3: CATEGORIES
         item {
-            Spacer(modifier = Modifier.height(24.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 4.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "CATEGORY BREAKDOWN",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    letterSpacing = 1.sp
-                )
-                if (categoryStats.isNotEmpty()) {
-                    Text(
-                        text = "${categoryStats.size} Categories",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
+            Spacer(modifier = Modifier.height(20.dp))
+            CupertinoSectionHeader(
+                title = "CATEGORIES",
+                rightText = if (categoryStats.isNotEmpty()) "${categoryStats.size} Items" else null
+            )
         }
 
         if (categoryStats.isEmpty()) {
             item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(20.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = if (isScanning) "Scanning storage categories..." else "Tap 'Scan Storage' to view dynamic file category breakdown.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+                CupertinoEmptyStateCard(
+                    text = if (isScanning) "Scanning storage categories..." else "Tap 'Scan' to generate category breakdown."
+                )
             }
         } else {
             items(categoryStats) { stat ->
-                CategoryBreakdownItem(
+                AppleCategoryRow(
                     stat = stat,
                     scannedTotalSize = scannedTotalSize
                 )
             }
         }
 
-        // 5. TOP SIZE FILES Section (Replaces Top Storage Consumers)
+        // Section 4: LARGEST FILES
         item {
-            Spacer(modifier = Modifier.height(24.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 4.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "TOP SIZE FILES",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    letterSpacing = 1.sp
-                )
-                if (topFiles.isNotEmpty()) {
-                    Text(
-                        text = "${topFiles.size} Files",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
+            Spacer(modifier = Modifier.height(20.dp))
+            CupertinoSectionHeader(
+                title = "LARGEST FILES",
+                rightText = if (topFiles.isNotEmpty()) "Top ${topFiles.size}" else null
+            )
         }
 
         if (topFiles.isEmpty()) {
             item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = if (isScanning) "Scanning top size files..." else "No scanned files found. Tap 'Scan Storage' at the top to scan.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+                CupertinoEmptyStateCard(
+                    text = if (isScanning) "Analyzing largest files..." else "No scanned files. Tap 'Scan' above."
+                )
             }
         } else {
             items(topFiles) { fileNode ->
-                TopFileItem(fileNode = fileNode)
+                AppleTopFileRow(fileNode = fileNode)
             }
         }
     }
 }
+}
 
 @Composable
-fun DynamicLegendItem(color: Color, label: String, sizeText: String) {
+fun CupertinoLegendItem(color: Color, label: String, sizeText: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
             modifier = Modifier
@@ -432,30 +363,90 @@ fun DynamicLegendItem(color: Color, label: String, sizeText: String) {
         )
         Spacer(modifier = Modifier.width(6.dp))
         Text(
-            text = "$label ($sizeText)",
-            fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            letterSpacing = 0.5.sp
+            text = "$label • $sizeText",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
 
 @Composable
-fun CategoryBreakdownItem(
+fun CupertinoWidgetCard(
+    modifier: Modifier = Modifier,
+    icon: ImageVector,
+    iconTint: Color,
+    label: String,
+    value: String
+) {
+    Surface(
+        modifier = modifier
+            .clip(RoundedCornerShape(22.dp))
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                shape = RoundedCornerShape(22.dp)
+            ),
+        shape = RoundedCornerShape(22.dp),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp
+    ) {
+        Column(modifier = Modifier.padding(18.dp)) {
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(iconTint.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconTint,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(14.dp))
+            Text(
+                text = label,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                letterSpacing = 1.sp
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = value,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+    }
+}
+
+@Composable
+fun AppleCategoryRow(
     stat: CategoryStat,
     scannedTotalSize: Long
 ) {
     val category = stat.category
+    val catColor = getAppleCategoryColor(category)
     val icon = getCategoryIcon(category)
     val percentage = if (scannedTotalSize > 0) (stat.size * 100f / scannedTotalSize.toFloat()) else 0f
 
-    Card(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            .padding(vertical = 4.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
+                shape = RoundedCornerShape(18.dp)
+            ),
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surface
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -467,31 +458,32 @@ fun CategoryBreakdownItem(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = category.color.copy(alpha = 0.15f),
-                        modifier = Modifier.size(40.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(RoundedCornerShape(13.dp))
+                            .background(catColor.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = icon,
-                                contentDescription = null,
-                                tint = category.color,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = catColor,
+                            modifier = Modifier.size(22.dp)
+                        )
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(14.dp))
                     Column {
                         Text(
                             text = category.displayName,
-                            style = MaterialTheme.typography.bodyMedium,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "${stat.fileCount} files",
-                            style = MaterialTheme.typography.bodySmall,
+                            text = "${stat.fileCount} items",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Normal,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -499,47 +491,55 @@ fun CategoryBreakdownItem(
 
                 Box(
                     modifier = Modifier
-                        .background(category.color.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(catColor.copy(alpha = 0.12f))
+                        .padding(horizontal = 10.dp, vertical = 5.dp)
                 ) {
                     Text(
                         text = Utils.formatSize(stat.size),
-                        fontSize = 12.sp,
+                        fontSize = 13.sp,
                         fontFamily = FontFamily.Monospace,
-                        color = category.color,
+                        color = catColor,
                         fontWeight = FontWeight.Bold
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // Dynamic mini progress bar for category percentage
+            // Capsule progress bar
             LinearProgressIndicator(
                 progress = { (percentage / 100f).coerceIn(0f, 1f) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(4.dp)
+                    .height(5.dp)
                     .clip(CircleShape),
-                color = category.color,
-                trackColor = category.color.copy(alpha = 0.2f),
+                color = catColor,
+                trackColor = catColor.copy(alpha = 0.15f)
             )
         }
     }
 }
 
 @Composable
-fun TopFileItem(fileNode: StorageNode.FileNode) {
+fun AppleTopFileRow(fileNode: StorageNode.FileNode) {
     val category = fileNode.category
+    val catColor = getAppleCategoryColor(category)
     val icon = getCategoryIcon(category)
     val parentPath = fileNode.file.parentFile?.name ?: "Storage"
 
-    Card(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            .padding(vertical = 4.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
+                shape = RoundedCornerShape(18.dp)
+            ),
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surface
     ) {
         Row(
             modifier = Modifier
@@ -552,25 +552,25 @@ fun TopFileItem(fileNode: StorageNode.FileNode) {
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.weight(1f)
             ) {
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = category.color.copy(alpha = 0.15f),
-                    modifier = Modifier.size(40.dp)
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(RoundedCornerShape(13.dp))
+                        .background(catColor.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = null,
-                            tint = category.color,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = catColor,
+                        modifier = Modifier.size(22.dp)
+                    )
                 }
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(14.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = fileNode.name,
-                        style = MaterialTheme.typography.bodyMedium,
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
@@ -578,7 +578,7 @@ fun TopFileItem(fileNode: StorageNode.FileNode) {
                     )
                     Text(
                         text = "Folder: $parentPath",
-                        style = MaterialTheme.typography.bodySmall,
+                        fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -586,24 +586,60 @@ fun TopFileItem(fileNode: StorageNode.FileNode) {
                 }
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(10.dp))
 
-            Column(horizontalAlignment = Alignment.End) {
-                Box(
-                    modifier = Modifier
-                        .background(category.color.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        text = Utils.formatSize(fileNode.size),
-                        fontSize = 12.sp,
-                        fontFamily = FontFamily.Monospace,
-                        color = category.color,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(catColor.copy(alpha = 0.12f))
+                    .padding(horizontal = 10.dp, vertical = 5.dp)
+            ) {
+                Text(
+                    text = Utils.formatSize(fileNode.size),
+                    fontSize = 13.sp,
+                    fontFamily = FontFamily.Monospace,
+                    color = catColor,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
+    }
+}
+
+@Composable
+fun CupertinoEmptyStateCard(text: String) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp)),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surface
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = text,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+fun getAppleCategoryColor(category: FileCategory): Color {
+    return when (category) {
+        FileCategory.VIDEOS -> AppleRed
+        FileCategory.IMAGES -> AppleOrange
+        FileCategory.AUDIO -> AppleYellow
+        FileCategory.DOCUMENTS -> AppleMint
+        FileCategory.APPS -> AppleTeal
+        FileCategory.ARCHIVES -> ApplePurple
+        FileCategory.OTHER -> AppleBlue
     }
 }
 
