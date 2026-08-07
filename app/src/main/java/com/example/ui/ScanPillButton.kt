@@ -2,10 +2,7 @@ package com.example.ui
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -55,21 +52,27 @@ fun ScanPillButton(
 
     val backgroundColor by animateColorAsState(
         targetValue = when {
-            isScanning -> AppleBlue.copy(alpha = 0.12f)
-            showDoneState -> AppleMint.copy(alpha = 0.16f)
+            isScanning -> AppleBlue.copy(alpha = 0.15f)
+            showDoneState -> AppleMint.copy(alpha = 0.18f)
             else -> AppleBlue.copy(alpha = 0.12f)
         },
-        animationSpec = tween(durationMillis = 300),
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
         label = "pillBg"
     )
 
     val borderColor by animateColorAsState(
         targetValue = when {
-            isScanning -> AppleBlue.copy(alpha = 0.3f)
-            showDoneState -> AppleMint.copy(alpha = 0.45f)
-            else -> AppleBlue.copy(alpha = 0.3f)
+            isScanning -> AppleBlue.copy(alpha = 0.4f)
+            showDoneState -> AppleMint.copy(alpha = 0.5f)
+            else -> AppleBlue.copy(alpha = 0.25f)
         },
-        animationSpec = tween(durationMillis = 300),
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
         label = "pillBorder"
     )
 
@@ -79,7 +82,10 @@ fun ScanPillButton(
             showDoneState -> AppleMint
             else -> AppleBlue
         },
-        animationSpec = tween(durationMillis = 300),
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
         label = "pillContent"
     )
 
@@ -105,8 +111,8 @@ fun ScanPillButton(
                 else -> ScanButtonState.Idle
             },
             transitionSpec = {
-                (fadeIn(animationSpec = tween(220)) + scaleIn(initialScale = 0.85f))
-                    .togetherWith(fadeOut(animationSpec = tween(180)) + scaleOut(targetScale = 0.85f))
+                (fadeIn(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) + scaleIn(initialScale = 0.82f, animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow)))
+                    .togetherWith(fadeOut(animationSpec = tween(150)) + scaleOut(targetScale = 0.82f))
             },
             label = "ScanPillContent"
         ) { state ->
@@ -121,9 +127,9 @@ fun ScanPillButton(
                             color = contentColor,
                             strokeWidth = 2.dp
                         )
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Scanning",
+                            text = "Scanning...",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = contentColor
@@ -135,7 +141,7 @@ fun ScanPillButton(
                             playTickAnim = true
                         }
                         val iconScale by animateFloatAsState(
-                            targetValue = if (playTickAnim) 1.15f else 0.4f,
+                            targetValue = if (playTickAnim) 1.15f else 0.3f,
                             animationSpec = spring(
                                 dampingRatio = Spring.DampingRatioMediumBouncy,
                                 stiffness = Spring.StiffnessLow
@@ -205,7 +211,10 @@ fun SettingsScanActionButton(
             showDoneState -> AppleMint
             else -> AppleBlue
         },
-        animationSpec = tween(300),
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
         label = "btnBg"
     )
 
@@ -215,7 +224,10 @@ fun SettingsScanActionButton(
             showDoneState -> androidx.compose.ui.graphics.Color.White
             else -> androidx.compose.ui.graphics.Color.White
         },
-        animationSpec = tween(300),
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
         label = "btnFg"
     )
 
@@ -241,8 +253,8 @@ fun SettingsScanActionButton(
             AnimatedContent(
                 targetState = if (showDoneState) ScanButtonState.Done else ScanButtonState.Idle,
                 transitionSpec = {
-                    (fadeIn(animationSpec = tween(200)) + scaleIn(initialScale = 0.8f))
-                        .togetherWith(fadeOut(animationSpec = tween(180)) + scaleOut(targetScale = 0.8f))
+                    (fadeIn(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) + scaleIn(initialScale = 0.8f, animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow)))
+                        .togetherWith(fadeOut(animationSpec = tween(150)) + scaleOut(targetScale = 0.8f))
                 },
                 label = "SettingsScanButtonContent"
             ) { state ->
@@ -281,3 +293,4 @@ fun SettingsScanActionButton(
         }
     }
 }
+

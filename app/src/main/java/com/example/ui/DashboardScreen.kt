@@ -1,5 +1,8 @@
 package com.example.ui
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -662,6 +665,15 @@ fun AppleCategoryRow(
     val icon = getCategoryIcon(category)
     val percentage = if (scannedTotalSize > 0) (stat.size * 100f / scannedTotalSize.toFloat()) else 0f
 
+    val animProgress by animateFloatAsState(
+        targetValue = (percentage / 100f).coerceIn(0f, 1f),
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioLowBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "catProgress"
+    )
+
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -736,7 +748,7 @@ fun AppleCategoryRow(
 
             // Capsule progress bar
             LinearProgressIndicator(
-                progress = { (percentage / 100f).coerceIn(0f, 1f) },
+                progress = { animProgress },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(5.dp)

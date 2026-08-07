@@ -1,6 +1,9 @@
 package com.example.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -578,6 +581,15 @@ fun AppleStorageNodeRow(
     val isDirectory = node is StorageNode.DirectoryNode
     val isExpanded = isDirectory && (node as StorageNode.DirectoryNode).isExpanded
 
+    val chevronRotation by animateFloatAsState(
+        targetValue = if (isExpanded) 90f else 0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioLowBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "chevronRotation"
+    )
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -598,7 +610,7 @@ fun AppleStorageNodeRow(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 modifier = Modifier
                     .size(16.dp)
-                    .rotate(if (isExpanded) 90f else 0f)
+                    .rotate(chevronRotation)
             )
             Spacer(modifier = Modifier.width(6.dp))
         } else {

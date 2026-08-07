@@ -1,8 +1,18 @@
 package com.example.ui
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -72,7 +82,35 @@ fun MainApp(viewModel: StorageViewModel) {
                     NavHost(
                         navController = navController,
                         startDestination = Screen.Dashboard.route,
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier.fillMaxSize(),
+                        enterTransition = {
+                            fadeIn(animationSpec = tween(280, easing = FastOutSlowInEasing)) +
+                            slideInHorizontally(
+                                initialOffsetX = { it / 8 },
+                                animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)
+                            )
+                        },
+                        exitTransition = {
+                            fadeOut(animationSpec = tween(200, easing = FastOutSlowInEasing)) +
+                            slideOutHorizontally(
+                                targetOffsetX = { -it / 8 },
+                                animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)
+                            )
+                        },
+                        popEnterTransition = {
+                            fadeIn(animationSpec = tween(280, easing = FastOutSlowInEasing)) +
+                            slideInHorizontally(
+                                initialOffsetX = { -it / 8 },
+                                animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)
+                            )
+                        },
+                        popExitTransition = {
+                            fadeOut(animationSpec = tween(200, easing = FastOutSlowInEasing)) +
+                            slideOutHorizontally(
+                                targetOffsetX = { it / 8 },
+                                animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)
+                            )
+                        }
                     ) {
                         composable(Screen.Dashboard.route) { DashboardScreen(viewModel) }
                         composable(Screen.Tree.route) { TreeScreen(viewModel) }
@@ -90,7 +128,35 @@ fun MainApp(viewModel: StorageViewModel) {
                 NavHost(
                     navController = navController,
                     startDestination = Screen.Dashboard.route,
-                    modifier = Modifier.padding(innerPadding)
+                    modifier = Modifier.padding(innerPadding),
+                    enterTransition = {
+                        fadeIn(animationSpec = tween(280, easing = FastOutSlowInEasing)) +
+                        slideInHorizontally(
+                            initialOffsetX = { it / 8 },
+                            animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)
+                        )
+                    },
+                    exitTransition = {
+                        fadeOut(animationSpec = tween(200, easing = FastOutSlowInEasing)) +
+                        slideOutHorizontally(
+                            targetOffsetX = { -it / 8 },
+                            animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)
+                        )
+                    },
+                    popEnterTransition = {
+                        fadeIn(animationSpec = tween(280, easing = FastOutSlowInEasing)) +
+                        slideInHorizontally(
+                            initialOffsetX = { -it / 8 },
+                            animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)
+                        )
+                    },
+                    popExitTransition = {
+                        fadeOut(animationSpec = tween(200, easing = FastOutSlowInEasing)) +
+                        slideOutHorizontally(
+                            targetOffsetX = { it / 8 },
+                            animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)
+                        )
+                    }
                 ) {
                     composable(Screen.Dashboard.route) { DashboardScreen(viewModel) }
                     composable(Screen.Tree.route) { TreeScreen(viewModel) }
@@ -267,13 +333,19 @@ fun CupertinoFloatingBottomBar(navController: androidx.navigation.NavHostControl
 
                     val activeBgColor by animateColorAsState(
                         targetValue = if (isSelected) AppleBlue.copy(alpha = 0.15f) else Color.Transparent,
-                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioLowBouncy,
+                            stiffness = Spring.StiffnessMediumLow
+                        ),
                         label = "activeBg"
                     )
 
                     val activeIconColor by animateColorAsState(
                         targetValue = if (isSelected) AppleBlue else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioNoBouncy,
+                            stiffness = Spring.StiffnessMediumLow
+                        ),
                         label = "activeIcon"
                     )
 
@@ -283,6 +355,12 @@ fun CupertinoFloatingBottomBar(navController: androidx.navigation.NavHostControl
                         modifier = Modifier
                             .clip(RoundedCornerShape(20.dp))
                             .background(activeBgColor)
+                            .animateContentSize(
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioLowBouncy,
+                                    stiffness = Spring.StiffnessMediumLow
+                                )
+                            )
                             .clickable(
                                 interactionSource = interactionSource,
                                 indication = null
@@ -308,14 +386,30 @@ fun CupertinoFloatingBottomBar(navController: androidx.navigation.NavHostControl
                                 tint = activeIconColor,
                                 modifier = Modifier.size(20.dp)
                             )
-                            if (isSelected) {
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = screen.title,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = AppleBlue
-                                )
+                            AnimatedVisibility(
+                                visible = isSelected,
+                                enter = expandHorizontally(
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioLowBouncy,
+                                        stiffness = Spring.StiffnessMediumLow
+                                    )
+                                ) + fadeIn(),
+                                exit = shrinkHorizontally(
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioNoBouncy,
+                                        stiffness = Spring.StiffnessMediumLow
+                                    )
+                                ) + fadeOut()
+                            ) {
+                                Row {
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = screen.title,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = AppleBlue
+                                    )
+                                }
                             }
                         }
                     }
@@ -324,3 +418,4 @@ fun CupertinoFloatingBottomBar(navController: androidx.navigation.NavHostControl
         }
     }
 }
+
