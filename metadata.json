@@ -1,0 +1,6 @@
+{
+  "name": "TreeDisk",
+  "description": "Android Storage Explorer",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
