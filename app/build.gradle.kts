@@ -14,7 +14,7 @@ android {
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
-    applicationId = "com.aistudio.treedisk.qxya"
+    applicationId = "com.logicriftlabs.treedisk"
     minSdk = 24
     targetSdk = 36
     versionCode = 1

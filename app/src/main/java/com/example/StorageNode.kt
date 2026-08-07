@@ -7,6 +7,7 @@ enum class FileCategory(
     val displayName: String,
     val color: Color
 ) {
+    SYSTEM("Android System", Color(0xFF0284C7)), // Apple / Android System Blue
     VIDEOS("Videos", Color(0xFFF87171)),       // StorageRed
     IMAGES("Images", Color(0xFFFB923C)),       // StorageOrange
     AUDIO("Audio", Color(0xFFFACC15)),         // StorageYellow

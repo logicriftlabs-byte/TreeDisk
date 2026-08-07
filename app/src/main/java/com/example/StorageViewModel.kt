@@ -72,7 +72,23 @@ class StorageViewModel : ViewModel() {
             )
             _rootNode.value = result.rootNode
             _topFiles.value = result.topFiles
-            _categoryStats.value = result.categoryStats
+
+            val scannedUserSize = result.categoryStats.filter { it.category != FileCategory.SYSTEM }.sumOf { it.size }
+            val systemSize = (_usedSpace.value - scannedUserSize).coerceAtLeast(0L)
+
+            val updatedStats = mutableListOf<CategoryStat>()
+            if (systemSize > 0L) {
+                updatedStats.add(
+                    CategoryStat(
+                        category = FileCategory.SYSTEM,
+                        size = systemSize,
+                        fileCount = 1
+                    )
+                )
+            }
+            updatedStats.addAll(result.categoryStats.filter { it.category != FileCategory.SYSTEM })
+
+            _categoryStats.value = updatedStats
             _lastScanTime.value = System.currentTimeMillis()
             
             _isScanning.value = false

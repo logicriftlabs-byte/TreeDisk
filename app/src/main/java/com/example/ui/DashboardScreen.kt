@@ -727,7 +727,7 @@ fun AppleCategoryRow(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "${stat.fileCount} items",
+                            text = if (category == FileCategory.SYSTEM) "Android OS & System Data" else "${stat.fileCount} items",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Normal,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -888,6 +888,7 @@ fun CupertinoEmptyStateCard(text: String) {
 
 fun getAppleCategoryColor(category: FileCategory): Color {
     return when (category) {
+        FileCategory.SYSTEM -> AppleIndigo
         FileCategory.VIDEOS -> AppleRed
         FileCategory.IMAGES -> AppleOrange
         FileCategory.AUDIO -> AppleYellow
@@ -900,6 +901,7 @@ fun getAppleCategoryColor(category: FileCategory): Color {
 
 private fun getCategoryIcon(category: FileCategory): ImageVector {
     return when (category) {
+        FileCategory.SYSTEM -> Icons.Default.Android
         FileCategory.VIDEOS -> Icons.Default.Movie
         FileCategory.IMAGES -> Icons.Default.Image
         FileCategory.AUDIO -> Icons.Default.MusicNote
