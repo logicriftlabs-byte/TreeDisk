@@ -14,6 +14,7 @@ import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -38,67 +39,92 @@ import com.example.ui.theme.*
 fun TreeScreen(viewModel: StorageViewModel) {
     val rootNode by viewModel.rootNode.collectAsState()
     val isScanning by viewModel.isScanning.collectAsState()
+    val flatList = rootNode?.let { flattenTree(it, 0) } ?: emptyList()
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
-        if (rootNode == null) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background)
-                    .padding(innerPadding)
-                    .padding(horizontal = 20.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                if (isScanning) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator(color = AppleBlue, strokeWidth = 3.dp)
-                        Spacer(modifier = Modifier.height(16.dp))
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(innerPadding)
+                .padding(horizontal = 20.dp),
+            contentPadding = PaddingValues(top = 20.dp, bottom = 100.dp)
+        ) {
+            // Apple Header matching Settings & Dashboard tab style
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 20.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Scanning directory tree...",
-                            fontSize = 14.sp,
+                            text = "Tree",
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            letterSpacing = (-0.5).sp
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "Hierarchical File & Directory Breakdown",
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                } else {
-                    Text(
-                        text = "No storage data. Scan from Dashboard.",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+
+                    // Cupertino Glass Action Pill Button
+                    Surface(
+                        shape = CircleShape,
+                        color = AppleBlue.copy(alpha = 0.12f),
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .border(
+                                width = 1.dp,
+                                color = AppleBlue.copy(alpha = 0.3f),
+                                shape = CircleShape
+                            )
+                            .clickable {
+                                if (!isScanning) viewModel.scanStorage()
+                            }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (isScanning) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(14.dp),
+                                    color = AppleBlue,
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = "Scan Storage",
+                                    modifier = Modifier.size(15.dp),
+                                    tint = AppleBlue
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (isScanning) "Scanning" else "Scan",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = AppleBlue
+                            )
+                        }
+                    }
                 }
             }
-        } else {
-            val flatList = flattenTree(rootNode!!, 0)
 
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background)
-                    .padding(innerPadding)
-                    .padding(horizontal = 20.dp)
-            ) {
-                // Apple Header matching Settings & Dashboard tab style
-                Column(modifier = Modifier.padding(top = 20.dp, bottom = 20.dp)) {
-                    Text(
-                        text = "Tree",
-                        fontSize = 32.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        letterSpacing = (-0.5).sp
-                    )
-                    Text(
-                        text = "Hierarchical File & Directory Breakdown",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                if (isScanning) {
+            if (isScanning) {
+                item {
                     LinearProgressIndicator(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -108,47 +134,79 @@ fun TreeScreen(viewModel: StorageViewModel) {
                         trackColor = AppleBlue.copy(alpha = 0.15f)
                     )
                 }
+            }
 
-                // Section Label Placement
+            item {
                 CupertinoSectionHeader(
                     title = "DIRECTORY HIERARCHY",
-                    rightText = "${flatList.size} Items"
+                    rightText = if (rootNode != null) "${flatList.size} Items" else null
                 )
+            }
 
-                // Apple Glass Inset Tree Container
-                Surface(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clip(RoundedCornerShape(26.dp))
-                        .border(
-                            width = 1.dp,
-                            brush = Brush.verticalGradient(
-                                colors = listOf(
-                                    MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                                    MaterialTheme.colorScheme.outline.copy(alpha = 0.08f)
-                                )
-                            ),
-                            shape = RoundedCornerShape(26.dp)
-                        ),
-                    shape = RoundedCornerShape(26.dp),
-                    color = MaterialTheme.colorScheme.surface
-                ) {
-                    LazyColumn(
+            if (rootNode == null) {
+                item {
+                    Surface(
                         modifier = Modifier
-                            .fillMaxSize()
-                            .padding(vertical = 8.dp),
-                        contentPadding = PaddingValues(bottom = 100.dp)
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(26.dp))
+                            .border(
+                                width = 1.dp,
+                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
+                                shape = RoundedCornerShape(26.dp)
+                            ),
+                        shape = RoundedCornerShape(26.dp),
+                        color = MaterialTheme.colorScheme.surface
                     ) {
-                        items(flatList) { item ->
-                            AppleStorageNodeRow(
-                                node = item.node,
-                                level = item.level,
-                                onToggle = {
-                                    if (it is StorageNode.DirectoryNode) {
-                                        viewModel.toggleNode(it)
-                                    }
-                                }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (isScanning) "Scanning directory tree..." else "No storage data. Scan from Dashboard.",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                        }
+                    }
+                }
+            } else {
+                item {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(26.dp))
+                            .border(
+                                width = 1.dp,
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(
+                                        MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                                        MaterialTheme.colorScheme.outline.copy(alpha = 0.08f)
+                                    )
+                                ),
+                                shape = RoundedCornerShape(26.dp)
+                            ),
+                        shape = RoundedCornerShape(26.dp),
+                        color = MaterialTheme.colorScheme.surface
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp)
+                        ) {
+                            flatList.forEach { item ->
+                                AppleStorageNodeRow(
+                                    node = item.node,
+                                    level = item.level,
+                                    onToggle = {
+                                        if (it is StorageNode.DirectoryNode) {
+                                            viewModel.toggleNode(it)
+                                        }
+                                    }
+                                )
+                            }
                         }
                     }
                 }

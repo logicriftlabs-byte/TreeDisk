@@ -75,6 +75,7 @@ fun SettingsScreen(viewModel: StorageViewModel) {
                         color = MaterialTheme.colorScheme.onSurface,
                         letterSpacing = (-0.5).sp
                     )
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = "Preferences & System Storage Diagnostics",
                         fontSize = 13.sp,

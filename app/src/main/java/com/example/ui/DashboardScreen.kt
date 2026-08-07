@@ -78,7 +78,7 @@ fun DashboardScreen(viewModel: StorageViewModel) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "Dashboard",
                         fontSize = 32.sp,
@@ -86,6 +86,7 @@ fun DashboardScreen(viewModel: StorageViewModel) {
                         color = MaterialTheme.colorScheme.onSurface,
                         letterSpacing = (-0.5).sp
                     )
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = "Storage & Visual Analytics",
                         fontSize = 13.sp,
