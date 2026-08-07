@@ -174,87 +174,80 @@ fun CupertinoNavigationRail(navController: androidx.navigation.NavHostController
 
     Surface(
         modifier = Modifier
-            .width(220.dp)
+            .width(250.dp)
             .fillMaxHeight()
             .border(
                 width = 1.dp,
                 brush = Brush.horizontalGradient(
                     colors = listOf(
-                        MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                        MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
                         MaterialTheme.colorScheme.outline.copy(alpha = 0.05f)
                     )
                 ),
                 shape = RoundedCornerShape(0.dp)
             ),
         color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 2.dp
+        tonalElevation = 1.dp
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(20.dp),
-            verticalArrangement = Arrangement.Top
+                .padding(horizontal = 16.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // App Branding Header for Tablets
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(bottom = 32.dp, top = 12.dp)
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = AppleBlue.copy(alpha = 0.15f),
-                    modifier = Modifier.size(40.dp)
+            Column {
+                // App Brand Identity Header
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 28.dp)
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Default.Dashboard,
-                            contentDescription = null,
-                            tint = AppleBlue,
-                            modifier = Modifier.size(22.dp)
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = AppleBlue,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.Dashboard,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "TreeDisk",
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            letterSpacing = (-0.3).sp
+                        )
+                        Text(
+                            text = "Storage Analyzer",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text(
-                        text = "Storage",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "Analyzer Pro",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
 
-            // Navigation Options
-            items.forEach { screen ->
-                val isSelected = currentDestination?.hierarchy?.any { it.route == screen.route } == true
-
-                val activeBgColor by animateColorAsState(
-                    targetValue = if (isSelected) AppleBlue.copy(alpha = 0.15f) else Color.Transparent,
-                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-                    label = "railActiveBg"
+                // Section 1: ANALYTICS & EXPLORER
+                Text(
+                    text = "ANALYTICS & EXPLORER",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    letterSpacing = 1.1.sp,
+                    modifier = Modifier.padding(start = 10.dp, bottom = 8.dp)
                 )
 
-                val activeTextColor by animateColorAsState(
-                    targetValue = if (isSelected) AppleBlue else MaterialTheme.colorScheme.onSurfaceVariant,
-                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-                    label = "railActiveText"
-                )
-
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = activeBgColor,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .clickable {
+                listOf(Screen.Dashboard, Screen.Tree).forEach { screen ->
+                    AppleSidebarRow(
+                        screen = screen,
+                        isSelected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
+                        onSelect = {
                             navController.navigate(screen.route) {
                                 popUpTo(navController.graph.findStartDestination().id) {
                                     saveState = true
@@ -263,27 +256,139 @@ fun CupertinoNavigationRail(navController: androidx.navigation.NavHostController
                                 restoreState = true
                             }
                         }
-                ) {
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Section 2: PREFERENCES
+                Text(
+                    text = "PREFERENCES",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    letterSpacing = 1.1.sp,
+                    modifier = Modifier.padding(start = 10.dp, bottom = 8.dp)
+                )
+
+                AppleSidebarRow(
+                    screen = Screen.Settings,
+                    isSelected = currentDestination?.hierarchy?.any { it.route == Screen.Settings.route } == true,
+                    onSelect = {
+                        navController.navigate(Screen.Settings.route) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                )
+            }
+
+            // Apple Sidebar Footer Widget: Mini Storage Card
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .border(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f),
+                        shape = RoundedCornerShape(16.dp)
+                    ),
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = screen.icon,
-                            contentDescription = screen.title,
-                            tint = activeTextColor,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(14.dp))
                         Text(
-                            text = screen.title,
-                            fontSize = 14.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                            color = activeTextColor
+                            text = "Internal Storage",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(AppleBlue)
                         )
                     }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "System Ready • Fast Indexing",
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun AppleSidebarRow(
+    screen: Screen,
+    isSelected: Boolean,
+    onSelect: () -> Unit
+) {
+    val activeBgColor by animateColorAsState(
+        targetValue = if (isSelected) AppleBlue else Color.Transparent,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "appleSidebarBg"
+    )
+
+    val activeTextColor by animateColorAsState(
+        targetValue = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "appleSidebarText"
+    )
+
+    val activeIconColor by animateColorAsState(
+        targetValue = if (isSelected) Color.White else AppleBlue,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "appleSidebarIcon"
+    )
+
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = activeBgColor,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .clickable { onSelect() }
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = screen.icon,
+                contentDescription = screen.title,
+                tint = activeIconColor,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = screen.title,
+                fontSize = 13.sp,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                color = activeTextColor
+            )
         }
     }
 }

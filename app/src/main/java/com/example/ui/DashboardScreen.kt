@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.CategoryStat
@@ -100,13 +101,18 @@ fun DashboardScreen(viewModel: StorageViewModel) {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background
         ) { innerPadding ->
-            Column(
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background)
-                    .padding(innerPadding)
-                    .padding(horizontal = 20.dp)
+                    .padding(innerPadding),
+                contentAlignment = Alignment.TopCenter
             ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .widthIn(max = if (isTablet) 900.dp else Dp.Unspecified)
+                        .padding(horizontal = 20.dp)
+                ) {
                 // Header Row
                 Row(
                     modifier = Modifier
@@ -580,6 +586,7 @@ fun DashboardScreen(viewModel: StorageViewModel) {
             }
         }
     }
+}
 }
 
 @Composable
