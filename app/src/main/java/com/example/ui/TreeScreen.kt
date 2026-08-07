@@ -78,48 +78,11 @@ fun TreeScreen(viewModel: StorageViewModel) {
                         )
                     }
 
-                    // Cupertino Glass Action Pill Button
-                    Surface(
-                        shape = CircleShape,
-                        color = AppleBlue.copy(alpha = 0.12f),
-                        modifier = Modifier
-                            .clip(CircleShape)
-                            .border(
-                                width = 1.dp,
-                                color = AppleBlue.copy(alpha = 0.3f),
-                                shape = CircleShape
-                            )
-                            .clickable {
-                                if (!isScanning) viewModel.scanStorage()
-                            }
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            if (isScanning) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(14.dp),
-                                    color = AppleBlue,
-                                    strokeWidth = 2.dp
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Default.Refresh,
-                                    contentDescription = "Scan Storage",
-                                    modifier = Modifier.size(15.dp),
-                                    tint = AppleBlue
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = if (isScanning) "Scanning" else "Scan",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = AppleBlue
-                            )
-                        }
-                    }
+                    // Cupertino Glass Action Pill Button with Animated Green Tick Completion
+                    ScanPillButton(
+                        isScanning = isScanning,
+                        onScanClick = { viewModel.scanStorage() }
+                    )
                 }
             }
 

@@ -375,27 +375,15 @@ fun SettingsScreen(viewModel: StorageViewModel) {
                                 }
                             }
 
-                            if (isScanning) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(18.dp),
-                                    color = AppleBlue,
-                                    strokeWidth = 2.dp
-                                )
-                            } else {
-                                Button(
-                                    onClick = {
-                                        viewModel.scanStorage()
-                                        scope.launch {
-                                            snackbarHostState.showSnackbar("Storage re-indexed")
-                                        }
-                                    },
-                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                                    shape = CircleShape,
-                                    colors = ButtonDefaults.buttonColors(containerColor = AppleBlue)
-                                ) {
-                                    Text("Re-scan", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            SettingsScanActionButton(
+                                isScanning = isScanning,
+                                onScanClick = {
+                                    viewModel.scanStorage()
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar("Storage re-indexed")
+                                    }
                                 }
-                            }
+                            )
                         }
 
                         HorizontalDivider(
