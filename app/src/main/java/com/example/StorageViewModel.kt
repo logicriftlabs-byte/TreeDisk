@@ -162,4 +162,26 @@ class StorageViewModel : ViewModel() {
         }
         return current.copy(children = updatedChildren)
     }
+
+    fun deleteNode(node: StorageNode, onResult: (Boolean, String) -> Unit = { _, _ -> }) {
+        viewModelScope.launch {
+            _isScanning.value = true
+            val success = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                try {
+                    if (node.file.exists()) {
+                        node.file.deleteRecursively()
+                    } else true
+                } catch (e: Exception) {
+                    false
+                }
+            }
+            if (success) {
+                onResult(true, "Successfully deleted '${node.name}'")
+                scanStorage()
+            } else {
+                _isScanning.value = false
+                onResult(false, "Failed to delete '${node.name}'")
+            }
+        }
+    }
 }

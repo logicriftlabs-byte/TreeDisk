@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.StorageViewModel
@@ -53,18 +54,26 @@ fun SettingsScreen(viewModel: StorageViewModel) {
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(innerPadding)
-                .padding(horizontal = 20.dp),
-            contentPadding = PaddingValues(top = 20.dp, bottom = 100.dp)
-        ) {
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val isTablet = maxWidth >= 720.dp
+
+        Scaffold(
+            containerColor = MaterialTheme.colorScheme.background,
+            snackbarHost = { SnackbarHost(snackbarHostState) }
+        ) { innerPadding ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                contentAlignment = Alignment.TopCenter
+            ) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .widthIn(max = if (isTablet) 900.dp else Dp.Unspecified)
+                        .padding(horizontal = 20.dp),
+                    contentPadding = PaddingValues(top = 20.dp, bottom = 100.dp)
+                ) {
             // Apple Header
             item {
                 Column(modifier = Modifier.padding(bottom = 20.dp)) {
@@ -573,153 +582,61 @@ fun SettingsScreen(viewModel: StorageViewModel) {
         }
     }
 
-    if (showClearDialog) {
-        AlertDialog(
-            onDismissRequest = { showClearDialog = false },
-            icon = { Icon(Icons.Default.CleaningServices, contentDescription = null, tint = AppleRed) },
-            title = { Text("Clear Scan Cache?") },
-            text = { Text("This will reset current storage index memory. You can re-scan anytime.") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.clearCache()
-                        showClearDialog = false
-                        scope.launch {
-                            snackbarHostState.showSnackbar("Scan cache cleared")
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = AppleRed)
-                ) {
-                    Text("Clear Cache")
+        if (showClearDialog) {
+            AlertDialog(
+                onDismissRequest = { showClearDialog = false },
+                icon = { Icon(Icons.Default.CleaningServices, contentDescription = null, tint = AppleRed) },
+                title = { Text("Clear Scan Cache?") },
+                text = { Text("This will reset current storage index memory. You can re-scan anytime.") },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            viewModel.clearCache()
+                            showClearDialog = false
+                            scope.launch {
+                                snackbarHostState.showSnackbar("Scan cache cleared")
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = AppleRed)
+                    ) {
+                        Text("Clear Cache")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showClearDialog = false }) {
+                        Text("Cancel")
+                    }
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { showClearDialog = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
+            )
+        }
 
-    if (showAboutDialog) {
-        AlertDialog(
-            onDismissRequest = { showAboutDialog = false },
-            icon = { Icon(Icons.Default.Storage, contentDescription = null, tint = AppleBlue) },
-            title = { Text("TreeDisk v1.2.0") },
-            text = {
-                Column {
-                    Text(
-                        text = "TreeDisk is a modern storage visualizer with Cupertino design elements, powered by Jetpack Compose.",
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "• Interactive Directory Tree\n• Category Breakdown\n• Floating Glass Navigation Bar\n• Apple SF System Styling",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+        if (showAboutDialog) {
+            AlertDialog(
+                onDismissRequest = { showAboutDialog = false },
+                icon = { Icon(Icons.Default.Storage, contentDescription = null, tint = AppleBlue) },
+                title = { Text("TreeDisk v1.2.0") },
+                text = {
+                    Column {
+                        Text(
+                            text = "TreeDisk is a modern storage visualizer with Cupertino design elements, powered by Jetpack Compose.",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "• Interactive Directory Tree\n• Category Breakdown\n• Floating Glass Navigation Bar\n• Apple SF System Styling",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(onClick = { showAboutDialog = false }) {
+                        Text("Close")
+                    }
                 }
-            },
-            confirmButton = {
-                Button(onClick = { showAboutDialog = false }) {
-                    Text("Close")
-                }
-            }
-        )
-    }
-}
-
-@Composable
-fun CupertinoSectionHeader(
-    title: String,
-    rightText: String? = null
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = title,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            letterSpacing = 1.2.sp
-        )
-        if (rightText != null) {
-            Text(
-                text = rightText,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
 }
-
-@Composable
-fun CupertinoSwitchRow(
-    icon: ImageVector,
-    iconBg: Color,
-    title: String,
-    subtitle: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .clickable { onCheckedChange(!checked) }
-            .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.weight(1f)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(RoundedCornerShape(9.dp))
-                    .background(iconBg.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = iconBg,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Text(
-                    text = title,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = subtitle,
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Color.White,
-                checkedTrackColor = AppleBlue,
-                uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
-            )
-        )
-    }
 }

@@ -45,9 +45,16 @@ import com.example.StorageNode
 import com.example.StorageViewModel
 import com.example.Utils
 import com.example.ui.theme.*
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 
 @Composable
 fun DashboardScreen(viewModel: StorageViewModel) {
+    val context = LocalContext.current
     val totalSpace by viewModel.totalSpace.collectAsState()
     val usedSpace by viewModel.usedSpace.collectAsState()
     val freeSpace by viewModel.freeSpace.collectAsState()
@@ -58,262 +65,518 @@ fun DashboardScreen(viewModel: StorageViewModel) {
 
     val scannedTotalSize = categoryStats.sumOf { it.size }.coerceAtLeast(1L)
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background
-    ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(innerPadding)
-                .padding(horizontal = 20.dp),
-            contentPadding = PaddingValues(top = 20.dp, bottom = 100.dp)
-        ) {
-        // 1. Apple Header with Glass Pill Action Button
-        item {
-            Row(
+    var selectedNodeForMenu by remember { mutableStateOf<StorageNode?>(null) }
+    var selectedNodeForDelete by remember { mutableStateOf<StorageNode?>(null) }
+
+    // Windows Context Menu Overlay
+    selectedNodeForMenu?.let { node ->
+        WindowsContextMenuPopup(
+            node = node,
+            onDismiss = { selectedNodeForMenu = null },
+            onExpandToggle = null,
+            onDeleteRequest = { nodeToDelete ->
+                selectedNodeForDelete = nodeToDelete
+            }
+        )
+    }
+
+    // Windows Delete Confirmation Dialog
+    selectedNodeForDelete?.let { node ->
+        WindowsDeleteConfirmDialog(
+            node = node,
+            onDismiss = { selectedNodeForDelete = null },
+            onConfirmDelete = { nodeToDelete ->
+                viewModel.deleteNode(nodeToDelete)
+            }
+        )
+    }
+
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val isTablet = maxWidth >= 720.dp
+
+        Scaffold(
+            containerColor = MaterialTheme.colorScheme.background
+        ) { innerPadding ->
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 20.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(innerPadding)
+                    .padding(horizontal = 20.dp)
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Dashboard",
-                        fontSize = 32.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        letterSpacing = (-0.5).sp
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "Storage & Visual Analytics",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                // Header Row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 20.dp, bottom = 20.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Dashboard",
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            letterSpacing = (-0.5).sp
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "Storage & Visual Analytics",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    // Cupertino Glass Action Pill Button
+                    ScanPillButton(
+                        isScanning = isScanning,
+                        onScanClick = { viewModel.scanStorage() }
                     )
                 }
 
-                // Cupertino Glass Action Pill Button with Animated Green Tick Completion
-                ScanPillButton(
-                    isScanning = isScanning,
-                    onScanClick = { viewModel.scanStorage() }
-                )
-            }
-        }
-
-        // Section 1: STORAGE OVERVIEW
-        item {
-            CupertinoSectionHeader("STORAGE OVERVIEW")
-
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(26.dp))
-                    .border(
-                        width = 1.dp,
-                        brush = Brush.verticalGradient(
-                            colors = listOf(
-                                MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                                MaterialTheme.colorScheme.outline.copy(alpha = 0.08f)
-                            )
-                        ),
-                        shape = RoundedCornerShape(26.dp)
-                    ),
-                shape = RoundedCornerShape(26.dp),
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 2.dp
-            ) {
-                Column(modifier = Modifier.padding(22.dp)) {
-                    val percentage = if (totalSpace > 0) (usedSpace * 100 / totalSpace).toInt() else 0
-
+                if (isTablet) {
+                    // Tablet Dual Pane Layout
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Bottom
-                    ) {
-                        Column {
-                            Text(
-                                text = "INTERNAL STORAGE",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                letterSpacing = 1.2.sp
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Row(verticalAlignment = Alignment.Bottom) {
-                                Text(
-                                    text = Utils.formatSize(usedSpace).substringBefore(" "),
-                                    fontSize = 32.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    letterSpacing = (-0.5).sp
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "${Utils.formatSize(usedSpace).substringAfter(" ")} / ${Utils.formatSize(totalSpace)}",
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(bottom = 4.dp)
-                                )
-                            }
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(AppleBlue.copy(alpha = 0.15f))
-                                .padding(horizontal = 12.dp, vertical = 6.dp)
-                        ) {
-                            Text(
-                                text = "$percentage% Used",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = AppleBlue
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    // Cupertino Multi-Segment Storage Progress Capsule Bar
-                    val trackColor = MaterialTheme.colorScheme.surfaceVariant
-                    val primaryColor = AppleBlue
-
-                    Canvas(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(16.dp)
-                            .clip(RoundedCornerShape(12.dp))
+                            .weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(24.dp)
                     ) {
-                        drawRoundRect(
-                            color = trackColor,
-                            size = size,
-                            cornerRadius = CornerRadius(12.dp.toPx(), 12.dp.toPx())
-                        )
-                        if (categoryStats.isNotEmpty()) {
-                            var currentX = 0f
-                            categoryStats.forEach { stat ->
-                                val fraction = stat.size.toFloat() / scannedTotalSize.toFloat()
-                                val segmentWidth = size.width * fraction
-                                if (segmentWidth > 0f) {
-                                    drawRoundRect(
-                                        color = getAppleCategoryColor(stat.category),
-                                        topLeft = Offset(currentX, 0f),
-                                        size = Size(segmentWidth, size.height),
-                                        cornerRadius = CornerRadius(12.dp.toPx(), 12.dp.toPx())
-                                    )
-                                    currentX += segmentWidth
+                        // Left Pane: Overview & Stats
+                        LazyColumn(
+                            modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(bottom = 40.dp)
+                        ) {
+                            item {
+                                CupertinoSectionHeader("STORAGE OVERVIEW")
+
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(26.dp))
+                                        .border(
+                                            width = 1.dp,
+                                            brush = Brush.verticalGradient(
+                                                colors = listOf(
+                                                    MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                                                    MaterialTheme.colorScheme.outline.copy(alpha = 0.08f)
+                                                )
+                                            ),
+                                            shape = RoundedCornerShape(26.dp)
+                                        ),
+                                    shape = RoundedCornerShape(26.dp),
+                                    color = MaterialTheme.colorScheme.surface,
+                                    tonalElevation = 2.dp
+                                ) {
+                                    Column(modifier = Modifier.padding(22.dp)) {
+                                        val percentage = if (totalSpace > 0) (usedSpace * 100 / totalSpace).toInt() else 0
+
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.Bottom
+                                        ) {
+                                            Column {
+                                                Text(
+                                                    text = "INTERNAL STORAGE",
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    letterSpacing = 1.2.sp
+                                                )
+                                                Spacer(modifier = Modifier.height(6.dp))
+                                                Row(verticalAlignment = Alignment.Bottom) {
+                                                    Text(
+                                                        text = Utils.formatSize(usedSpace).substringBefore(" "),
+                                                        fontSize = 32.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = MaterialTheme.colorScheme.onSurface,
+                                                        letterSpacing = (-0.5).sp
+                                                    )
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text(
+                                                        text = "${Utils.formatSize(usedSpace).substringAfter(" ")} / ${Utils.formatSize(totalSpace)}",
+                                                        fontSize = 15.sp,
+                                                        fontWeight = FontWeight.Medium,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        modifier = Modifier.padding(bottom = 4.dp)
+                                                    )
+                                                }
+                                            }
+
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(12.dp))
+                                                    .background(AppleBlue.copy(alpha = 0.15f))
+                                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                                            ) {
+                                                Text(
+                                                    text = "$percentage% Used",
+                                                    fontSize = 13.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = AppleBlue
+                                                )
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(20.dp))
+
+                                        val trackColor = MaterialTheme.colorScheme.surfaceVariant
+                                        val primaryColor = AppleBlue
+
+                                        Canvas(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(16.dp)
+                                                .clip(RoundedCornerShape(12.dp))
+                                        ) {
+                                            drawRoundRect(
+                                                color = trackColor,
+                                                size = size,
+                                                cornerRadius = CornerRadius(12.dp.toPx(), 12.dp.toPx())
+                                            )
+                                            if (categoryStats.isNotEmpty()) {
+                                                var currentX = 0f
+                                                categoryStats.forEach { stat ->
+                                                    val fraction = stat.size.toFloat() / scannedTotalSize.toFloat()
+                                                    val segmentWidth = size.width * fraction
+                                                    if (segmentWidth > 0f) {
+                                                        drawRoundRect(
+                                                            color = getAppleCategoryColor(stat.category),
+                                                            topLeft = Offset(currentX, 0f),
+                                                            size = Size(segmentWidth, size.height),
+                                                            cornerRadius = CornerRadius(12.dp.toPx(), 12.dp.toPx())
+                                                        )
+                                                        currentX += segmentWidth
+                                                    }
+                                                }
+                                            } else if (totalSpace > 0) {
+                                                val usedWidth = size.width * (usedSpace.toFloat() / totalSpace.toFloat())
+                                                drawRoundRect(
+                                                    color = primaryColor,
+                                                    size = Size(usedWidth, size.height),
+                                                    cornerRadius = CornerRadius(12.dp.toPx(), 12.dp.toPx())
+                                                )
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(18.dp))
+
+                                        if (categoryStats.isNotEmpty()) {
+                                            LazyRow(
+                                                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                items(categoryStats) { stat ->
+                                                    CupertinoLegendItem(
+                                                        color = getAppleCategoryColor(stat.category),
+                                                        label = stat.category.displayName,
+                                                        sizeText = Utils.formatSize(stat.size)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
-                        } else if (totalSpace > 0) {
-                            val usedWidth = size.width * (usedSpace.toFloat() / totalSpace.toFloat())
-                            drawRoundRect(
-                                color = primaryColor,
-                                size = Size(usedWidth, size.height),
-                                cornerRadius = CornerRadius(12.dp.toPx(), 12.dp.toPx())
-                            )
+
+                            item {
+                                Spacer(modifier = Modifier.height(20.dp))
+                                CupertinoSectionHeader("SYSTEM STATS")
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                ) {
+                                    CupertinoWidgetCard(
+                                        modifier = Modifier.weight(1f),
+                                        icon = Icons.Default.SdCard,
+                                        iconTint = AppleMint,
+                                        label = "AVAILABLE",
+                                        value = Utils.formatSize(freeSpace)
+                                    )
+
+                                    CupertinoWidgetCard(
+                                        modifier = Modifier.weight(1f),
+                                        icon = Icons.Default.Storage,
+                                        iconTint = AppleBlue,
+                                        label = "INDEXED FOLDERS",
+                                        value = "${rootNode?.childrenCount ?: 0} Folders"
+                                    )
+                                }
+                            }
+                        }
+
+                        // Right Pane: Categories & Top Files
+                        LazyColumn(
+                            modifier = Modifier.weight(1.2f),
+                            contentPadding = PaddingValues(bottom = 40.dp)
+                        ) {
+                            item {
+                                CupertinoSectionHeader(
+                                    title = "CATEGORIES",
+                                    rightText = if (categoryStats.isNotEmpty()) "${categoryStats.size} Items" else null
+                                )
+                            }
+
+                            if (categoryStats.isEmpty()) {
+                                item {
+                                    CupertinoEmptyStateCard(
+                                        text = if (isScanning) "Scanning storage categories..." else "Tap 'Scan' to generate category breakdown."
+                                    )
+                                }
+                            } else {
+                                items(categoryStats) { stat ->
+                                    AppleCategoryRow(
+                                        stat = stat,
+                                        scannedTotalSize = scannedTotalSize
+                                    )
+                                }
+                            }
+
+                            item {
+                                Spacer(modifier = Modifier.height(20.dp))
+                                CupertinoSectionHeader(
+                                    title = "LARGEST FILES",
+                                    rightText = if (topFiles.isNotEmpty()) "Top ${topFiles.size}" else null
+                                )
+                            }
+
+                            if (topFiles.isEmpty()) {
+                                item {
+                                    CupertinoEmptyStateCard(
+                                        text = if (isScanning) "Analyzing largest files..." else "No scanned files. Tap 'Scan' above."
+                                    )
+                                }
+                            } else {
+                                items(topFiles) { fileNode ->
+                                    AppleTopFileRow(
+                                        fileNode = fileNode,
+                                        onClick = { openFile(context, fileNode.file) },
+                                        onLongPress = { selectedNodeForMenu = fileNode }
+                                    )
+                                }
+                            }
                         }
                     }
+                } else {
+                    // Mobile Single-Pane Vertical Layout
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = 100.dp)
+                    ) {
+                        item {
+                            CupertinoSectionHeader("STORAGE OVERVIEW")
 
-                    Spacer(modifier = Modifier.height(18.dp))
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(26.dp))
+                                    .border(
+                                        width = 1.dp,
+                                        brush = Brush.verticalGradient(
+                                            colors = listOf(
+                                                MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                                                MaterialTheme.colorScheme.outline.copy(alpha = 0.08f)
+                                            )
+                                        ),
+                                        shape = RoundedCornerShape(26.dp)
+                                    ),
+                                shape = RoundedCornerShape(26.dp),
+                                color = MaterialTheme.colorScheme.surface,
+                                tonalElevation = 2.dp
+                            ) {
+                                Column(modifier = Modifier.padding(22.dp)) {
+                                    val percentage = if (totalSpace > 0) (usedSpace * 100 / totalSpace).toInt() else 0
 
-                    // Dynamic Legend Pills
-                    if (categoryStats.isNotEmpty()) {
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(14.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.Bottom
+                                    ) {
+                                        Column {
+                                            Text(
+                                                text = "INTERNAL STORAGE",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                letterSpacing = 1.2.sp
+                                            )
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                            Row(verticalAlignment = Alignment.Bottom) {
+                                                Text(
+                                                    text = Utils.formatSize(usedSpace).substringBefore(" "),
+                                                    fontSize = 32.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                    letterSpacing = (-0.5).sp
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(
+                                                    text = "${Utils.formatSize(usedSpace).substringAfter(" ")} / ${Utils.formatSize(totalSpace)}",
+                                                    fontSize = 15.sp,
+                                                    fontWeight = FontWeight.Medium,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    modifier = Modifier.padding(bottom = 4.dp)
+                                                )
+                                            }
+                                        }
+
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(12.dp))
+                                                .background(AppleBlue.copy(alpha = 0.15f))
+                                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                                        ) {
+                                            Text(
+                                                text = "$percentage% Used",
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = AppleBlue
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(20.dp))
+
+                                    val trackColor = MaterialTheme.colorScheme.surfaceVariant
+                                    val primaryColor = AppleBlue
+
+                                    Canvas(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(16.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                    ) {
+                                        drawRoundRect(
+                                            color = trackColor,
+                                            size = size,
+                                            cornerRadius = CornerRadius(12.dp.toPx(), 12.dp.toPx())
+                                        )
+                                        if (categoryStats.isNotEmpty()) {
+                                            var currentX = 0f
+                                            categoryStats.forEach { stat ->
+                                                val fraction = stat.size.toFloat() / scannedTotalSize.toFloat()
+                                                val segmentWidth = size.width * fraction
+                                                if (segmentWidth > 0f) {
+                                                    drawRoundRect(
+                                                        color = getAppleCategoryColor(stat.category),
+                                                        topLeft = Offset(currentX, 0f),
+                                                        size = Size(segmentWidth, size.height),
+                                                        cornerRadius = CornerRadius(12.dp.toPx(), 12.dp.toPx())
+                                                    )
+                                                    currentX += segmentWidth
+                                                }
+                                            }
+                                        } else if (totalSpace > 0) {
+                                            val usedWidth = size.width * (usedSpace.toFloat() / totalSpace.toFloat())
+                                            drawRoundRect(
+                                                color = primaryColor,
+                                                size = Size(usedWidth, size.height),
+                                                cornerRadius = CornerRadius(12.dp.toPx(), 12.dp.toPx())
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(18.dp))
+
+                                    if (categoryStats.isNotEmpty()) {
+                                        LazyRow(
+                                            horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            items(categoryStats) { stat ->
+                                                CupertinoLegendItem(
+                                                    color = getAppleCategoryColor(stat.category),
+                                                    label = stat.category.displayName,
+                                                    sizeText = Utils.formatSize(stat.size)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        item {
+                            Spacer(modifier = Modifier.height(20.dp))
+                            CupertinoSectionHeader("SYSTEM STATS")
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(14.dp)
+                            ) {
+                                CupertinoWidgetCard(
+                                    modifier = Modifier.weight(1f),
+                                    icon = Icons.Default.SdCard,
+                                    iconTint = AppleMint,
+                                    label = "AVAILABLE",
+                                    value = Utils.formatSize(freeSpace)
+                                )
+
+                                CupertinoWidgetCard(
+                                    modifier = Modifier.weight(1f),
+                                    icon = Icons.Default.Storage,
+                                    iconTint = AppleBlue,
+                                    label = "INDEXED FOLDERS",
+                                    value = "${rootNode?.childrenCount ?: 0} Folders"
+                                )
+                            }
+                        }
+
+                        item {
+                            Spacer(modifier = Modifier.height(20.dp))
+                            CupertinoSectionHeader(
+                                title = "CATEGORIES",
+                                rightText = if (categoryStats.isNotEmpty()) "${categoryStats.size} Items" else null
+                            )
+                        }
+
+                        if (categoryStats.isEmpty()) {
+                            item {
+                                CupertinoEmptyStateCard(
+                                    text = if (isScanning) "Scanning storage categories..." else "Tap 'Scan' to generate category breakdown."
+                                )
+                            }
+                        } else {
                             items(categoryStats) { stat ->
-                                CupertinoLegendItem(
-                                    color = getAppleCategoryColor(stat.category),
-                                    label = stat.category.displayName,
-                                    sizeText = Utils.formatSize(stat.size)
+                                AppleCategoryRow(
+                                    stat = stat,
+                                    scannedTotalSize = scannedTotalSize
+                                )
+                            }
+                        }
+
+                        item {
+                            Spacer(modifier = Modifier.height(20.dp))
+                            CupertinoSectionHeader(
+                                title = "LARGEST FILES",
+                                rightText = if (topFiles.isNotEmpty()) "Top ${topFiles.size}" else null
+                            )
+                        }
+
+                        if (topFiles.isEmpty()) {
+                            item {
+                                CupertinoEmptyStateCard(
+                                    text = if (isScanning) "Analyzing largest files..." else "No scanned files. Tap 'Scan' above."
+                                )
+                            }
+                        } else {
+                            items(topFiles) { fileNode ->
+                                AppleTopFileRow(
+                                    fileNode = fileNode,
+                                    onClick = { openFile(context, fileNode.file) },
+                                    onLongPress = { selectedNodeForMenu = fileNode }
                                 )
                             }
                         }
                     }
                 }
-            }
-        }
-
-        // Section 2: SYSTEM STATS
-        item {
-            Spacer(modifier = Modifier.height(20.dp))
-            CupertinoSectionHeader("SYSTEM STATS")
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                // Widget 1: Available Free Space
-                CupertinoWidgetCard(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Default.SdCard,
-                    iconTint = AppleMint,
-                    label = "AVAILABLE",
-                    value = Utils.formatSize(freeSpace)
-                )
-
-                // Widget 2: Scanned Directory Nodes
-                CupertinoWidgetCard(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Default.Storage,
-                    iconTint = AppleBlue,
-                    label = "INDEXED FOLDERS",
-                    value = "${rootNode?.childrenCount ?: 0} Folders"
-                )
-            }
-        }
-
-        // Section 3: CATEGORIES
-        item {
-            Spacer(modifier = Modifier.height(20.dp))
-            CupertinoSectionHeader(
-                title = "CATEGORIES",
-                rightText = if (categoryStats.isNotEmpty()) "${categoryStats.size} Items" else null
-            )
-        }
-
-        if (categoryStats.isEmpty()) {
-            item {
-                CupertinoEmptyStateCard(
-                    text = if (isScanning) "Scanning storage categories..." else "Tap 'Scan' to generate category breakdown."
-                )
-            }
-        } else {
-            items(categoryStats) { stat ->
-                AppleCategoryRow(
-                    stat = stat,
-                    scannedTotalSize = scannedTotalSize
-                )
-            }
-        }
-
-        // Section 4: LARGEST FILES
-        item {
-            Spacer(modifier = Modifier.height(20.dp))
-            CupertinoSectionHeader(
-                title = "LARGEST FILES",
-                rightText = if (topFiles.isNotEmpty()) "Top ${topFiles.size}" else null
-            )
-        }
-
-        if (topFiles.isEmpty()) {
-            item {
-                CupertinoEmptyStateCard(
-                    text = if (isScanning) "Analyzing largest files..." else "No scanned files. Tap 'Scan' above."
-                )
-            }
-        } else {
-            items(topFiles) { fileNode ->
-                AppleTopFileRow(fileNode = fileNode)
             }
         }
     }
-}
 }
 
 @Composable
@@ -485,8 +748,13 @@ fun AppleCategoryRow(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun AppleTopFileRow(fileNode: StorageNode.FileNode) {
+fun AppleTopFileRow(
+    fileNode: StorageNode.FileNode,
+    onClick: () -> Unit = {},
+    onLongPress: () -> Unit = {}
+) {
     val category = fileNode.category
     val catColor = getAppleCategoryColor(category)
     val icon = getCategoryIcon(category)
@@ -501,6 +769,10 @@ fun AppleTopFileRow(fileNode: StorageNode.FileNode) {
                 width = 1.dp,
                 color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
                 shape = RoundedCornerShape(18.dp)
+            )
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongPress
             ),
         shape = RoundedCornerShape(18.dp),
         color = MaterialTheme.colorScheme.surface

@@ -51,21 +51,173 @@ val items = listOf(
 @Composable
 fun MainApp(viewModel: StorageViewModel) {
     val navController = rememberNavController()
-    
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        bottomBar = {
-            CupertinoFloatingBottomBar(navController = navController)
+
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val isTablet = maxWidth >= 720.dp
+
+        if (isTablet) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
+            ) {
+                // Sleek Frosted Glass Navigation Rail for Tablets
+                CupertinoNavigationRail(navController = navController)
+
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                ) {
+                    NavHost(
+                        navController = navController,
+                        startDestination = Screen.Dashboard.route,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        composable(Screen.Dashboard.route) { DashboardScreen(viewModel) }
+                        composable(Screen.Tree.route) { TreeScreen(viewModel) }
+                        composable(Screen.Settings.route) { SettingsScreen(viewModel) }
+                    }
+                }
+            }
+        } else {
+            Scaffold(
+                containerColor = MaterialTheme.colorScheme.background,
+                bottomBar = {
+                    CupertinoFloatingBottomBar(navController = navController)
+                }
+            ) { innerPadding ->
+                NavHost(
+                    navController = navController,
+                    startDestination = Screen.Dashboard.route,
+                    modifier = Modifier.padding(innerPadding)
+                ) {
+                    composable(Screen.Dashboard.route) { DashboardScreen(viewModel) }
+                    composable(Screen.Tree.route) { TreeScreen(viewModel) }
+                    composable(Screen.Settings.route) { SettingsScreen(viewModel) }
+                }
+            }
         }
-    ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = Screen.Dashboard.route,
-            modifier = Modifier.padding(innerPadding)
+    }
+}
+
+@Composable
+fun CupertinoNavigationRail(navController: androidx.navigation.NavHostController) {
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentDestination = navBackStackEntry?.destination
+
+    Surface(
+        modifier = Modifier
+            .width(220.dp)
+            .fillMaxHeight()
+            .border(
+                width = 1.dp,
+                brush = Brush.horizontalGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                        MaterialTheme.colorScheme.outline.copy(alpha = 0.05f)
+                    )
+                ),
+                shape = RoundedCornerShape(0.dp)
+            ),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 2.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(20.dp),
+            verticalArrangement = Arrangement.Top
         ) {
-            composable(Screen.Dashboard.route) { DashboardScreen(viewModel) }
-            composable(Screen.Tree.route) { TreeScreen(viewModel) }
-            composable(Screen.Settings.route) { SettingsScreen(viewModel) }
+            // App Branding Header for Tablets
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(bottom = 32.dp, top = 12.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = AppleBlue.copy(alpha = 0.15f),
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.Dashboard,
+                            contentDescription = null,
+                            tint = AppleBlue,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = "Storage",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Analyzer Pro",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // Navigation Options
+            items.forEach { screen ->
+                val isSelected = currentDestination?.hierarchy?.any { it.route == screen.route } == true
+
+                val activeBgColor by animateColorAsState(
+                    targetValue = if (isSelected) AppleBlue.copy(alpha = 0.15f) else Color.Transparent,
+                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                    label = "railActiveBg"
+                )
+
+                val activeTextColor by animateColorAsState(
+                    targetValue = if (isSelected) AppleBlue else MaterialTheme.colorScheme.onSurfaceVariant,
+                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                    label = "railActiveText"
+                )
+
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = activeBgColor,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable {
+                            navController.navigate(screen.route) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = screen.icon,
+                            contentDescription = screen.title,
+                            tint = activeTextColor,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Text(
+                            text = screen.title,
+                            fontSize = 14.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            color = activeTextColor
+                        )
+                    }
+                }
+            }
         }
     }
 }
