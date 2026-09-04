@@ -5,7 +5,7 @@ import java.io.File
 
 enum class FileCategory(
     val displayName: String,
-    val color: Color
+    val color: Color,
 ) {
     SYSTEM("Android System", Color(0xFF0284C7)), // Apple / Android System Blue
     VIDEOS("Videos", Color(0xFFF87171)),       // StorageRed
@@ -20,37 +20,43 @@ enum class FileCategory(
 data class CategoryStat(
     val category: FileCategory,
     val size: Long,
-    val fileCount: Int
+    val fileCount: Int,
 )
 
 sealed class StorageNode {
-    abstract val file: File
+    abstract val name: String
     abstract val size: Long
     abstract val isDirectory: Boolean
-    val name: String get() = file.name
+    abstract val path: String
 
     data class FileNode(
-        override val file: File,
-        override val size: Long
+        val file: File? = null, // Local file
+        override val name: String,
+        override val size: Long,
+        override val path: String,
+        val isRemote: Boolean = false,
     ) : StorageNode() {
         override val isDirectory: Boolean = false
-        val category: FileCategory get() = getCategoryForFile(file)
+        val category: FileCategory get() = getCategoryForFile(name)
     }
 
     data class DirectoryNode(
-        override val file: File,
+        val file: File? = null, // Local directory
+        override val name: String,
         override val size: Long,
+        override val path: String,
         val childrenCount: Int,
         val children: List<StorageNode> = emptyList(),
-        val isExpanded: Boolean = false
+        val isExpanded: Boolean = false,
+        val isRemote: Boolean = false,
+        val connectionId: Long? = null, // For remote directories
     ) : StorageNode() {
         override val isDirectory: Boolean = true
     }
 
     companion object {
-        fun getCategoryForFile(file: File): FileCategory {
-            val ext = file.extension.lowercase()
-            return when (ext) {
+        fun getCategoryForFile(fileName: String): FileCategory {
+            return when (fileName.substringAfterLast('.', "").lowercase()) {
                 "mp4", "mkv", "avi", "mov", "3gp", "webm", "flv", "m4v" -> FileCategory.VIDEOS
                 "jpg", "jpeg", "png", "gif", "webp", "heic", "bmp", "svg" -> FileCategory.IMAGES
                 "mp3", "wav", "flac", "aac", "m4a", "ogg", "wma", "opus" -> FileCategory.AUDIO

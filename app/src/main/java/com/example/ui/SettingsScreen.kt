@@ -25,9 +25,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -40,7 +38,10 @@ import java.util.Date
 import java.util.Locale
 
 @Composable
-fun SettingsScreen(viewModel: StorageViewModel) {
+fun SettingsScreen(
+    viewModel: StorageViewModel,
+    @Suppress("UNUSED_PARAMETER") onBack: () -> Unit = {},
+) {
     val includeHidden by viewModel.includeHiddenFiles.collectAsState()
     val ignoreSystem by viewModel.ignoreSystemCache.collectAsState()
     val minSizeMb by viewModel.minFileSizeMb.collectAsState()
@@ -49,23 +50,24 @@ fun SettingsScreen(viewModel: StorageViewModel) {
     val isScanning by viewModel.isScanning.collectAsState()
     val lastScanTime by viewModel.lastScanTime.collectAsState()
 
-    var showClearDialog by remember { mutableStateOf(false) }
-    var showAboutDialog by remember { mutableStateOf(false) }
+    var showClearDialog by remember { mutableStateOf(value = false) }
+    var showAboutDialog by remember { mutableStateOf(value = false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
+    @Suppress("UnusedBoxWithConstraintsScope")
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val isTablet = maxWidth >= 720.dp
+        val isTablet = this.maxWidth >= 720.dp
 
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
-            snackbarHost = { SnackbarHost(snackbarHostState) }
+            snackbarHost = { SnackbarHost(snackbarHostState) },
         ) { innerPadding ->
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
-                contentAlignment = Alignment.TopCenter
+                contentAlignment = Alignment.TopCenter,
             ) {
                 LazyColumn(
                     modifier = Modifier

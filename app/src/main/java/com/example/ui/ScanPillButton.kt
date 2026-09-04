@@ -36,10 +36,10 @@ enum class ScanButtonState {
 fun ScanPillButton(
     isScanning: Boolean,
     onScanClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     var wasScanning by remember { mutableStateOf(isScanning) }
-    var showDoneState by remember { mutableStateOf(false) }
+    var showDoneState by remember { mutableStateOf(value = false) }
 
     LaunchedEffect(isScanning) {
         if (wasScanning && !isScanning) {
@@ -136,7 +136,7 @@ fun ScanPillButton(
                         )
                     }
                     ScanButtonState.Done -> {
-                        var playTickAnim by remember { mutableStateOf(false) }
+                        var playTickAnim by remember { mutableStateOf(value = false) }
                         LaunchedEffect(Unit) {
                             playTickAnim = true
                         }

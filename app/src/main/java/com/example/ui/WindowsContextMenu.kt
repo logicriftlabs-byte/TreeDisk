@@ -5,11 +5,6 @@ import android.content.Intent
 import android.net.Uri
 import android.webkit.MimeTypeMap
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,11 +12,14 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
+import androidx.compose.material.icons.automirrored.filled.NoteAdd
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.CreateNewFolder
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
-import androidx.compose.material.icons.filled.InsertDriveFile
-import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -44,7 +42,11 @@ import com.example.StorageNode
 import com.example.Utils
 import java.io.File
 
-fun openFile(context: Context, file: File) {
+fun openFile(context: Context, file: File?) {
+    if (file == null) {
+        Toast.makeText(context, "Remote file preview not supported yet", Toast.LENGTH_SHORT).show()
+        return
+    }
     try {
         if (!file.exists()) {
             Toast.makeText(context, "File does not exist: ${file.name}", Toast.LENGTH_SHORT).show()
@@ -54,9 +56,9 @@ fun openFile(context: Context, file: File) {
             FileProvider.getUriForFile(
                 context,
                 "${context.packageName}.provider",
-                file
+                file,
             )
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             Uri.fromFile(file)
         }
 
@@ -73,7 +75,7 @@ fun openFile(context: Context, file: File) {
         Toast.makeText(
             context,
             "Cannot open ${file.name}: ${e.localizedMessage ?: "No handler application"}",
-            Toast.LENGTH_LONG
+            Toast.LENGTH_LONG,
         ).show()
     }
 }
@@ -83,7 +85,9 @@ fun WindowsContextMenuPopup(
     node: StorageNode,
     onDismiss: () -> Unit,
     onExpandToggle: ((StorageNode.DirectoryNode) -> Unit)? = null,
-    onDeleteRequest: (StorageNode) -> Unit
+    onOrganizeRequest: ((StorageNode.DirectoryNode) -> Unit)? = null,
+    onCreateRequest: ((StorageNode.DirectoryNode, Boolean) -> Unit)? = null,
+    onDeleteRequest: (StorageNode) -> Unit,
 ) {
     val context = LocalContext.current
     val isDark = isSystemInDarkTheme()
@@ -133,7 +137,7 @@ fun WindowsContextMenuPopup(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = if (node.isDirectory) Icons.Default.Folder else Icons.Default.InsertDriveFile,
+                            imageVector = if (node.isDirectory) Icons.Default.Folder else Icons.AutoMirrored.Filled.InsertDriveFile,
                             contentDescription = null,
                             tint = if (node.isDirectory) Color(0xFF3B82F6) else Color(0xFF10B981),
                             modifier = Modifier.size(18.dp)
@@ -175,15 +179,51 @@ fun WindowsContextMenuPopup(
                                 onExpandToggle?.invoke(node)
                             }
                         )
+                        
+                        WindowsContextMenuItem(
+                            icon = Icons.Default.CreateNewFolder,
+                            label = "New Folder",
+                            textColor = winTextColor,
+                            hoverColor = winHoverBg,
+                            onClick = {
+                                onDismiss()
+                                onCreateRequest?.invoke(node, true)
+                            }
+                        )
+                        
+                        WindowsContextMenuItem(
+                            icon = Icons.AutoMirrored.Filled.NoteAdd,
+                            label = "New File",
+                            textColor = winTextColor,
+                            hoverColor = winHoverBg,
+                            onClick = {
+                                onDismiss()
+                                onCreateRequest?.invoke(node, false)
+                            }
+                        )
+                        
+                        if (!node.isRemote) {
+                            WindowsContextMenuItem(
+                                icon = Icons.Default.AutoAwesome,
+                                label = "Clean up with AI",
+                                textColor = Color(0xFF8B5CF6),
+                                hoverColor = winHoverBg,
+                                onClick = {
+                                    onDismiss()
+                                    onOrganizeRequest?.invoke(node)
+                                }
+                            )
+                        }
                     } else if (node is StorageNode.FileNode) {
                         WindowsContextMenuItem(
-                            icon = Icons.Default.OpenInNew,
+                            icon = Icons.AutoMirrored.Filled.OpenInNew,
                             label = "Open File",
                             textColor = winTextColor,
                             hoverColor = winHoverBg,
                             onClick = {
                                 onDismiss()
-                                openFile(context, node.file)
+                                val file = node.file
+                                openFile(context, file)
                             }
                         )
                     }
@@ -195,7 +235,7 @@ fun WindowsContextMenuPopup(
 
                     // Delete Action (Windows Red Highlight)
                     WindowsContextMenuItem(
-                        icon = Icons.Default.DeleteOutline,
+                        icon = Icons.Default.Delete,
                         label = if (node.isDirectory) "Delete Folder" else "Delete File",
                         textColor = Color(0xFFEF4444), // Windows Alert Red
                         hoverColor = Color(0xFFEF4444).copy(alpha = 0.12f),
@@ -218,7 +258,7 @@ fun WindowsContextMenuItem(
     hoverColor: Color,
     onClick: () -> Unit
 ) {
-    var isPressed by remember { mutableStateOf(false) }
+    var isPressed by remember { mutableStateOf(value = false) }
 
     Row(
         modifier = Modifier
@@ -302,8 +342,9 @@ fun WindowsDeleteConfirmDialog(
                     lineHeight = 18.sp
                 )
                 Spacer(modifier = Modifier.height(6.dp))
+                val parentPath = node.path.substringBeforeLast('/', "Storage").substringAfterLast('/', "Storage")
                 Text(
-                    text = "Location: ${node.file.parent ?: "Storage"}",
+                    text = "Location: $parentPath",
                     fontSize = 11.sp,
                     fontFamily = FontFamily.Monospace,
                     color = subTextColor.copy(alpha = 0.7f),

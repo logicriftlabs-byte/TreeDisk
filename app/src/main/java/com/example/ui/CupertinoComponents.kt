@@ -17,26 +17,63 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.AppleBlue
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+
 @Composable
 fun CupertinoSectionHeader(
     title: String,
-    rightText: String? = null
+    rightText: String? = null,
+    isExpanded: Boolean? = null,
+    onRightClick: (() -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 8.dp),
+            .padding(horizontal = 4.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = title,
             fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.ExtraBold,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             letterSpacing = 1.2.sp
         )
-        if (rightText != null) {
+        
+        if ((rightText != null) && (onRightClick != null)) {
+            Surface(
+                onClick = onRightClick,
+                shape = androidx.compose.foundation.shape.CircleShape,
+                color = AppleBlue.copy(alpha = 0.1f),
+                modifier = Modifier.height(28.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = rightText.uppercase(),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = AppleBlue,
+                        letterSpacing = 0.5.sp
+                    )
+                    if (isExpanded != null) {
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                            contentDescription = null,
+                            tint = AppleBlue,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+            }
+        } else if (rightText != null) {
             Text(
                 text = rightText,
                 fontSize = 12.sp,

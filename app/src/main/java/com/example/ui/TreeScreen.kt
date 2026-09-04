@@ -1,65 +1,105 @@
 package com.example.ui
 
-import androidx.compose.animation.AnimatedVisibility
+import android.widget.Toast
+import androidx.compose.animation.*
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.FolderOpen
-import androidx.compose.material.icons.filled.OpenInNew
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.automirrored.filled.NoteAdd
+import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.StorageNode
 import com.example.StorageViewModel
 import com.example.Utils
 import com.example.ui.theme.*
-
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import com.example.ui.openFile
+import com.example.ui.WindowsDeleteConfirmDialog
+import com.example.ui.StorageSortOption
+import com.example.ui.ItemTypeFilter
+import com.example.ui.FileSizeFilter
+import com.example.ui.StorageFilterConfig
+import com.example.ui.filterAndSortTree
+import com.example.ui.countNodes
+import com.example.ui.SortDropdownMenu
+import com.example.ui.FilterDialog
 
 @Composable
-fun TreeScreen(viewModel: StorageViewModel) {
+fun TreeScreen(viewModel: StorageViewModel, onOpenDashboard: () -> Unit = {}, onOpenSettings: () -> Unit = {}) {
     val rootNode by viewModel.rootNode.collectAsState()
+    val activeRoots by viewModel.activeRoots.collectAsState()
+    val selectedRootId by viewModel.selectedRootId.collectAsState()
     val isScanning by viewModel.isScanning.collectAsState()
-    val flatList = rootNode?.let { flattenTree(it, 0) } ?: emptyList()
+    val remoteConnections by viewModel.remoteConnections.collectAsState()
+
+    var sortOption by remember { mutableStateOf(StorageSortOption.NAME_ASC) }
+    var foldersFirst by remember { mutableStateOf(true) }
+    var showSortMenu by remember { mutableStateOf(false) }
+
+    var filterConfig by remember { mutableStateOf(StorageFilterConfig()) }
+    var showFilterDialog by remember { mutableStateOf(false) }
+    var isSearchActive by remember { mutableStateOf(false) }
+
+    val processedRootNode = remember(rootNode, filterConfig, sortOption, foldersFirst) {
+        rootNode?.let { filterAndSortTree(it, filterConfig, sortOption, foldersFirst) }
+    }
+
+    val flatList = remember(processedRootNode, filterConfig.searchQuery) {
+        val autoExpand = filterConfig.searchQuery.isNotBlank()
+        val list = mutableListOf<FlatNode>()
+        if (processedRootNode is StorageNode.DirectoryNode) {
+            for (child in processedRootNode.children) {
+                list.addAll(flattenTree(child, 0, autoExpand = autoExpand))
+            }
+        }
+        list
+    }
+
+    val totalUnfilteredCount = remember(rootNode) { countNodes(rootNode) }
+    val totalFilteredCount = remember(processedRootNode) { countNodes(processedRootNode) }
+    val hiddenCount = (totalUnfilteredCount - totalFilteredCount).coerceAtLeast(0)
+
+    val listState = rememberLazyListState()
 
     var selectedNodeForMenu by remember { mutableStateOf<StorageNode?>(null) }
     var selectedNodeForDelete by remember { mutableStateOf<StorageNode?>(null) }
-    var selectedNodeForInspector by remember { mutableStateOf<StorageNode?>(null) }
+    var showAddRemoteDialog by remember { mutableStateOf(false) }
+    var showManageConnectionsDialog by remember { mutableStateOf(false) }
+    var showFabMenu by remember { mutableStateOf(false) }
+    var showCreateDialog by remember { mutableStateOf(false) }
+    var isCreatingFolder by remember { mutableStateOf(false) }
+    var selectedNodeForCreate by remember { mutableStateOf<StorageNode.DirectoryNode?>(null) }
+    var lastExpandedNode by remember { mutableStateOf<StorageNode.DirectoryNode?>(null) }
 
-    // Windows Context Menu Overlay
+    val context = LocalContext.current
+
     selectedNodeForMenu?.let { node ->
         WindowsContextMenuPopup(
             node = node,
@@ -67,487 +107,529 @@ fun TreeScreen(viewModel: StorageViewModel) {
             onExpandToggle = { folder ->
                 viewModel.toggleNode(folder)
             },
+            onOrganizeRequest = { folder ->
+                viewModel.organizeDirectoryWithAI(folder) { _, msg ->
+                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                }
+            },
+            onCreateRequest = { folder, isFolder ->
+                selectedNodeForCreate = folder
+                isCreatingFolder = isFolder
+                showCreateDialog = true
+            },
             onDeleteRequest = { nodeToDelete ->
                 selectedNodeForDelete = nodeToDelete
             }
         )
     }
 
-    // Windows Delete Confirmation Dialog
-    selectedNodeForDelete?.let { node ->
-        WindowsDeleteConfirmDialog(
-            node = node,
-            onDismiss = { selectedNodeForDelete = null },
-            onConfirmDelete = { nodeToDelete ->
-                viewModel.deleteNode(nodeToDelete)
+    if (showManageConnectionsDialog) {
+        ManageConnectionsDialog(
+            connections = remoteConnections,
+            onDismiss = { showManageConnectionsDialog = false },
+            onDelete = { conn ->
+                viewModel.deleteRemoteConnection(conn)
             }
         )
     }
 
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val isTablet = maxWidth >= 720.dp
+    if (showCreateDialog) {
+        CreateItemDialog(
+            isFolder = isCreatingFolder,
+            initialPath = selectedNodeForCreate?.path ?: android.os.Environment.getExternalStorageDirectory().absolutePath,
+            onDismiss = { 
+                showCreateDialog = false
+                selectedNodeForCreate = null
+            },
+            onCreate = { path, name ->
+                if (isCreatingFolder) {
+                    viewModel.createFolder(path, name) { _, msg ->
+                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    viewModel.createFile(path, name) { _, msg ->
+                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                    }
+                }
+                showCreateDialog = false
+                selectedNodeForCreate = null
+            }
+        )
+    }
 
-        Scaffold(
-            containerColor = MaterialTheme.colorScheme.background
-        ) { innerPadding ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentAlignment = Alignment.TopCenter
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .widthIn(max = if (isTablet) 900.dp else Dp.Unspecified)
-                        .padding(horizontal = 20.dp)
+    if (showAddRemoteDialog) {
+        AddRemoteConnectionDialog(
+            onDismiss = { showAddRemoteDialog = false },
+            onAdd = { connection, callback ->
+                viewModel.testAndAddRemoteConnection(connection) { success, msg ->
+                    callback(success, msg)
+                    if (success) {
+                        showAddRemoteDialog = false
+                    }
+                    if (msg != null) {
+                        Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        )
+    }
+
+    if (showFilterDialog) {
+        FilterDialog(
+            config = filterConfig,
+            onDismiss = { showFilterDialog = false },
+            onApply = { newConfig -> filterConfig = newConfig },
+            onReset = { filterConfig = StorageFilterConfig() }
+        )
+    }
+
+    Scaffold(
+        topBar = {
+            Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)) {
+                // Top header
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp).statusBarsPadding(),
+                    contentAlignment = Alignment.Center
                 ) {
-                // Header Row
+                    Row(
+                        modifier = Modifier.align(Alignment.CenterStart),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(imageVector = Icons.Default.Terminal, contentDescription = null, tint = AppleBlue, modifier = Modifier.size(24.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "NucleusFS",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                    }
+                    
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(16.dp))
+                            .clickable { onOpenDashboard() }
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Overview", tint = MaterialTheme.colorScheme.onBackground, modifier = Modifier.size(24.dp))
+                    }
+                    
+                    Row(
+                        modifier = Modifier.align(Alignment.CenterEnd),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = { isSearchActive = !isSearchActive }) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = "Search",
+                                tint = if (isSearchActive || filterConfig.searchQuery.isNotBlank()) AppleBlue else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        IconButton(onClick = onOpenSettings) {
+                            Icon(imageVector = Icons.Default.Settings, contentDescription = "Settings", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+
+                // Sticky / Pinned Connected Nodes Section
+                if (activeRoots.isNotEmpty()) {
+                    val isCollapsed by remember {
+                        derivedStateOf {
+                            (listState.firstVisibleItemIndex > 0) || (listState.firstVisibleItemScrollOffset > 20)
+                        }
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = if (isCollapsed) 4.dp else 8.dp)
+                            .animateContentSize(spring(stiffness = Spring.StiffnessMediumLow))
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "CONNECTED NODES",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                letterSpacing = 1.sp
+                            )
+                            Text(
+                                "Manage",
+                                fontSize = 12.sp,
+                                color = AppleMint,
+                                modifier = Modifier.clickable { showManageConnectionsDialog = true }
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(if (isCollapsed) 6.dp else 10.dp))
+
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            items(
+                                count = activeRoots.size,
+                                key = { index -> activeRoots[index].connectionId?.toString() ?: "local" }
+                            ) { index ->
+                                val root = activeRoots[index]
+                                val rootId = root.connectionId?.toString() ?: "local"
+                                val isSelected = rootId == selectedRootId
+                                NodeCard(
+                                    type = if (root.isRemote) "CLOUD" else "LOCAL",
+                                    name = root.name,
+                                    usage = if (root.isRemote) "Active" else "Internal",
+                                    color = if (root.isRemote) AppleBlue else AppleMint,
+                                    isSelected = isSelected,
+                                    isCollapsed = isCollapsed,
+                                    onClick = { viewModel.selectRoot(rootId) }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        bottomBar = {
+            // Footer
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.2f))
+                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha=0.1f))
+                    .padding(16.dp)
+                    .navigationBarsPadding()
+            ) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 20.dp, bottom = 20.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Tree",
-                            fontSize = 32.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            letterSpacing = (-0.5).sp
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = "Hierarchical File & Directory Breakdown",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        AnimatedContent(
+                            targetState = "${flatList.count { !it.node.isDirectory }} Files / ${flatList.count { it.node.isDirectory }} Folders",
+                            transitionSpec = { fadeIn(spring(stiffness = Spring.StiffnessMediumLow)) togetherWith fadeOut(spring(stiffness = Spring.StiffnessMediumLow)) },
+                            label = "countsAnim"
+                        ) { countText ->
+                            Text(
+                                text = countText,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = AppleMint
+                            )
+                        }
+                        AnimatedContent(
+                            targetState = if (filterConfig.isActive) "Filtered: $hiddenCount hidden" else "Filtered: 0 hidden",
+                            transitionSpec = { fadeIn(spring(stiffness = Spring.StiffnessMediumLow)) togetherWith fadeOut(spring(stiffness = Spring.StiffnessMediumLow)) },
+                            label = "filteredAnim"
+                        ) { filteredText ->
+                            Text(
+                                text = filteredText,
+                                fontSize = 12.sp,
+                                color = if ((filterConfig.isActive) && (hiddenCount > 0)) AppleMint else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = if (filterConfig.isActive) Modifier.clickable { showFilterDialog = true } else Modifier
+                            )
+                        }
                     }
 
-                    // Cupertino Glass Action Pill Button
-                    ScanPillButton(
-                        isScanning = isScanning,
-                        onScanClick = { viewModel.scanStorage() }
-                    )
-                }
-
-                if (isScanning) {
-                    LinearProgressIndicator(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 12.dp)
-                            .clip(CircleShape),
-                        color = AppleBlue,
-                        trackColor = AppleBlue.copy(alpha = 0.15f)
-                    )
-                }
-
-                if (isTablet) {
-                    // Tablet 2-Pane Master-Detail Layout
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        horizontalArrangement = Arrangement.spacedBy(24.dp)
-                    ) {
-                        // Left Master Pane: Directory Hierarchy Tree
-                        Column(
-                            modifier = Modifier
-                                .weight(1.1f)
-                                .fillMaxHeight()
+                    // Sort Button & Dropdown
+                    Box {
+                        Surface(
+                            onClick = { showSortMenu = true },
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.5f),
+                            shape = RoundedCornerShape(8.dp),
+                            border = BorderStroke(1.dp, AppleMint.copy(alpha=0.3f))
                         ) {
-                            CupertinoSectionHeader(
-                                title = "DIRECTORY HIERARCHY",
-                                rightText = if (rootNode != null) "${flatList.size} Items" else null
-                            )
-
-                            if (rootNode == null) {
-                                CupertinoEmptyStateCard(
-                                    text = if (isScanning) "Scanning directory tree..." else "No storage data. Scan from Dashboard."
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.Sort,
+                                    contentDescription = "Sort",
+                                    tint = AppleMint,
+                                    modifier = Modifier.size(15.dp)
                                 )
-                            } else {
-                                LazyColumn(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .clip(RoundedCornerShape(26.dp))
-                                        .border(
-                                            width = 1.dp,
-                                            brush = Brush.verticalGradient(
-                                                colors = listOf(
-                                                    MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                                                    MaterialTheme.colorScheme.outline.copy(alpha = 0.08f)
-                                                )
-                                            ),
-                                            shape = RoundedCornerShape(26.dp)
-                                        )
-                                        .background(MaterialTheme.colorScheme.surface),
-                                    contentPadding = PaddingValues(vertical = 8.dp)
-                                ) {
-                                    items(flatList) { item ->
-                                        AppleStorageNodeRow(
-                                            node = item.node,
-                                            level = item.level,
-                                            onToggle = { node ->
-                                                if (node is StorageNode.DirectoryNode) {
-                                                    viewModel.toggleNode(node)
-                                                }
-                                                selectedNodeForInspector = node
-                                            },
-                                            onLongPress = { selectedNodeForMenu = it }
-                                        )
-                                    }
+                                Spacer(modifier = Modifier.width(6.dp))
+                                AnimatedContent(
+                                    targetState = sortOption.shortName,
+                                    transitionSpec = {
+                                        (slideInVertically(spring(stiffness = Spring.StiffnessMediumLow)) { it / 2 } + fadeIn())
+                                            .togetherWith(slideOutVertically(spring(stiffness = Spring.StiffnessMediumLow)) { -it / 2 } + fadeOut())
+                                    },
+                                    label = "sortLabelAnim"
+                                ) { sortName ->
+                                    Text(
+                                        text = sortName,
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        fontWeight = FontWeight.Medium
+                                    )
                                 }
+                                Spacer(modifier = Modifier.width(2.dp))
+                                Icon(
+                                    imageVector = Icons.Default.ArrowDropDown,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(16.dp)
+                                )
                             }
                         }
 
-                        // Right Detail Inspector Pane
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight()
-                        ) {
-                            CupertinoSectionHeader(title = "FILE & FOLDER INSPECTOR")
-
-                            NodeInspectorPanel(
-                                node = selectedNodeForInspector ?: rootNode,
-                                viewModel = viewModel,
-                                onDeleteRequest = { selectedNodeForDelete = it }
-                            )
-                        }
+                        SortDropdownMenu(
+                            expanded = showSortMenu,
+                            onDismissRequest = { showSortMenu = false },
+                            currentSort = sortOption,
+                            onSortSelected = { sortOption = it },
+                            foldersFirst = foldersFirst,
+                            onToggleFoldersFirst = { foldersFirst = it }
+                        )
                     }
-                } else {
-                    // Mobile Single Column Tree Layout
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = 100.dp)
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    // Filter Button
+                    Surface(
+                        onClick = { showFilterDialog = true },
+                        color = if (filterConfig.isActive) AppleMint.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.4f),
+                        shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(
+                            1.dp,
+                            if (filterConfig.isActive) AppleMint.copy(alpha = 0.8f) else MaterialTheme.colorScheme.outline.copy(alpha=0.2f)
+                        )
                     ) {
-                        item {
-                            CupertinoSectionHeader(
-                                title = "DIRECTORY HIERARCHY",
-                                rightText = if (rootNode != null) "${flatList.size} Items" else null
+                        Box(
+                            contentAlignment = Alignment.TopEnd,
+                            modifier = Modifier.padding(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.FilterAlt,
+                                contentDescription = "Filter",
+                                tint = if (filterConfig.isActive) AppleMint else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(16.dp)
                             )
-                        }
-
-                        if (rootNode == null) {
-                            item {
-                                Surface(
+                            if (filterConfig.isActive) {
+                                Box(
                                     modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(26.dp))
-                                        .border(
-                                            width = 1.dp,
-                                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
-                                            shape = RoundedCornerShape(26.dp)
-                                        ),
-                                    shape = RoundedCornerShape(26.dp),
-                                    color = MaterialTheme.colorScheme.surface
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(32.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = if (isScanning) "Scanning directory tree..." else "No storage data. Scan from Dashboard.",
-                                            fontSize = 14.sp,
-                                            fontWeight = FontWeight.Medium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-                            }
-                        } else {
-                            item {
-                                Surface(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(26.dp))
-                                        .border(
-                                            width = 1.dp,
-                                            brush = Brush.verticalGradient(
-                                                colors = listOf(
-                                                    MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                                                    MaterialTheme.colorScheme.outline.copy(alpha = 0.08f)
-                                                )
-                                            ),
-                                            shape = RoundedCornerShape(26.dp)
-                                        ),
-                                    shape = RoundedCornerShape(26.dp),
-                                    color = MaterialTheme.colorScheme.surface
-                                ) {
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 8.dp)
-                                    ) {
-                                        flatList.forEach { item ->
-                                            AppleStorageNodeRow(
-                                                node = item.node,
-                                                level = item.level,
-                                                onToggle = {
-                                                    if (it is StorageNode.DirectoryNode) {
-                                                        viewModel.toggleNode(it)
-                                                    }
-                                                },
-                                                onLongPress = { selectedNodeForMenu = it }
-                                            )
-                                        }
-                                    }
-                                }
+                                        .size(6.dp)
+                                        .clip(CircleShape)
+                                        .background(AppleMint)
+                                )
                             }
                         }
                     }
+                }
+            }
+        },
+        floatingActionButton = {
+            Box {
+                FloatingActionButton(
+                    onClick = { showFabMenu = true },
+                    containerColor = AppleMint,
+                    contentColor = Color.Black,
+                    shape = CircleShape
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Add Menu")
+                }
+                
+                DropdownMenu(
+                    expanded = showFabMenu,
+                    onDismissRequest = { showFabMenu = false },
+                    modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("New Connection") },
+                        onClick = {
+                            showFabMenu = false
+                            showAddRemoteDialog = true
+                        },
+                        leadingIcon = { Icon(Icons.Default.Cloud, contentDescription = null) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("New Folder") },
+                        onClick = {
+                            showFabMenu = false
+                            isCreatingFolder = true
+                            selectedNodeForCreate = lastExpandedNode // Pre-select the last expanded folder
+                            showCreateDialog = true
+                        },
+                        leadingIcon = { Icon(Icons.Default.CreateNewFolder, contentDescription = null) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("New File") },
+                        onClick = {
+                            showFabMenu = false
+                            isCreatingFolder = false
+                            selectedNodeForCreate = lastExpandedNode // Pre-select the last expanded folder
+                            showCreateDialog = true
+                        },
+                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.NoteAdd, contentDescription = null) }
+                    )
+                }
+            }
+        },
+        containerColor = MaterialTheme.colorScheme.background
+    ) { paddingValues ->
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize().padding(paddingValues),
+            contentPadding = PaddingValues(bottom = 80.dp)
+        ) {
+            if (rootNode == null) {
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                        Text(if (isScanning) "Scanning directory tree..." else "No storage data.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            } else if (flatList.isEmpty()) {
+                item(key = "empty_filtered_state") {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .animateItem(
+                                fadeInSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                                fadeOutSpec = spring(stiffness = Spring.StiffnessMediumLow)
+                            )
+                            .padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.SearchOff,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(40.dp)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "No matching files or folders found",
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Try adjusting your filters or search terms",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        OutlinedButton(
+                            onClick = {
+                                filterConfig = StorageFilterConfig()
+                                isSearchActive = false
+                            },
+                            border = BorderStroke(1.dp, AppleMint.copy(alpha = 0.6f)),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(Icons.Default.Clear, contentDescription = null, tint = AppleMint, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Clear Filters", color = AppleMint, fontSize = 12.sp)
+                        }
+                    }
+                }
+            } else {
+                items(
+                    items = flatList,
+                    key = { it.node.path }
+                ) { flatNode ->
+                    AppleStorageNodeRow(
+                        node = flatNode.node,
+                        level = flatNode.level,
+                        modifier = Modifier.animateItem(
+                            fadeInSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                            fadeOutSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                            placementSpec = spring(
+                                dampingRatio = Spring.DampingRatioLowBouncy,
+                                stiffness = Spring.StiffnessMediumLow
+                            )
+                        ),
+                        onToggle = { nodeToToggle -> 
+                            if (nodeToToggle is StorageNode.DirectoryNode) {
+                                if (!nodeToToggle.isExpanded) {
+                                    lastExpandedNode = nodeToToggle
+                                } else if (lastExpandedNode == nodeToToggle) {
+                                    lastExpandedNode = null
+                                }
+                                viewModel.toggleNode(nodeToToggle) 
+                            }
+                        },
+                        onLongPress = { selectedNodeForMenu = it }
+                    )
                 }
             }
         }
     }
 }
-}
 
 @Composable
-fun NodeInspectorPanel(
-    node: StorageNode?,
-    viewModel: StorageViewModel,
-    onDeleteRequest: (StorageNode) -> Unit
+fun NodeCard(
+    type: String,
+    name: String,
+    usage: String,
+    color: Color,
+    isSelected: Boolean = false,
+    isCollapsed: Boolean = false,
+    onClick: (() -> Unit)? = null,
 ) {
-    val context = LocalContext.current
+    val cardBg = if (isSelected) color.copy(alpha = 0.22f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)
+    val cardBorder = if (isSelected) color else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
 
-    if (node == null) {
-        CupertinoEmptyStateCard("Select a file or directory from the tree to inspect details.")
-        return
-    }
-
-    val isDirectory = node is StorageNode.DirectoryNode
-    val category = if (node is StorageNode.FileNode) node.category else null
-    val color = when {
-        node.size > 5L * 1024 * 1024 * 1024 -> AppleRed
-        node.size > 1L * 1024 * 1024 * 1024 -> AppleOrange
-        node.size > 100L * 1024 * 1024 -> AppleYellow
-        else -> AppleBlue
-    }
-
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(26.dp))
-            .border(
-                width = 1.dp,
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                        MaterialTheme.colorScheme.outline.copy(alpha = 0.08f)
-                    )
-                ),
-                shape = RoundedCornerShape(26.dp)
-            ),
-        shape = RoundedCornerShape(26.dp),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 2.dp
-    ) {
-        Column(modifier = Modifier.padding(24.dp)) {
-            // Header Badge & Name
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = color.copy(alpha = 0.15f),
-                    modifier = Modifier.size(56.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        val icon = if (isDirectory) Icons.Default.Folder else Icons.AutoMirrored.Filled.InsertDriveFile
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = null,
-                            tint = color,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.width(16.dp))
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = node.name,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = if (isDirectory) "Directory / Folder" else (category?.displayName ?: "File"),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // File Size & Attributes
+    if (isCollapsed) {
+        // Lean compact pill button when scrolled
+        Surface(
+            color = cardBg,
+            shape = CircleShape,
+            border = BorderStroke(1.dp, cardBorder),
+            modifier = Modifier
+                .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
+        ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text(
-                        text = "TOTAL SIZE",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        letterSpacing = 1.sp
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = Utils.formatSize(node.size),
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = color
-                    )
-                }
-
-                if (node is StorageNode.DirectoryNode) {
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            text = "CHILD ITEMS",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            letterSpacing = 1.sp
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "${node.children.size} Items",
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Full Path Card
-            Text(
-                text = "FULL FILE PATH",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                letterSpacing = 1.sp
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                modifier = Modifier.fillMaxWidth()
-            ) {
+                Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(color))
+                Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = node.file.absolutePath,
+                    text = name,
                     fontSize = 12.sp,
-                    fontFamily = FontFamily.Monospace,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(12.dp)
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                    color = if (isSelected) color else MaterialTheme.colorScheme.onSurface
                 )
             }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Action Buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                if (node is StorageNode.FileNode) {
-                    Button(
-                        onClick = { openFile(context, node.file) },
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = AppleBlue),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(imageVector = Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Open File", fontWeight = FontWeight.Bold)
-                    }
-                } else if (node is StorageNode.DirectoryNode) {
-                    Button(
-                        onClick = { viewModel.toggleNode(node) },
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = AppleBlue),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(if (node.isExpanded) "Collapse Folder" else "Expand Folder", fontWeight = FontWeight.Bold)
-                    }
-                }
-
-                OutlinedButton(
-                    onClick = { onDeleteRequest(node) },
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = AppleRed),
-                    border = BorderStroke(1.dp, AppleRed.copy(alpha = 0.4f)),
-                    modifier = Modifier.weight(1f)
+        }
+    } else {
+        // Full standard card
+        Surface(
+            color = cardBg,
+            shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(1.dp, cardBorder),
+            modifier = Modifier
+                .width(135.dp)
+                .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
+        ) {
+            Column(modifier = Modifier.padding(10.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(imageVector = Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Delete", fontWeight = FontWeight.Bold)
+                    Text(type, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(color))
                 }
-            }
-
-            // Preview of children inside folder if directory
-            if (node is StorageNode.DirectoryNode && node.children.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(24.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = "FOLDER CONTENTS PREVIEW",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    letterSpacing = 1.sp
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(name, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(usage, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(6.dp))
+                LinearProgressIndicator(
+                    progress = { 0.4f },
+                    modifier = Modifier.fillMaxWidth().height(2.dp),
+                    color = color,
+                    trackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
                 )
-                Spacer(modifier = Modifier.height(10.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    node.children.take(6).forEach { child ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
-                                .padding(horizontal = 10.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = if (child is StorageNode.DirectoryNode) Icons.Default.Folder else Icons.AutoMirrored.Filled.InsertDriveFile,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = child.name,
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Text(
-                                text = Utils.formatSize(child.size),
-                                fontSize = 11.sp,
-                                fontFamily = FontFamily.Monospace,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
             }
         }
     }
@@ -555,16 +637,14 @@ fun NodeInspectorPanel(
 
 data class FlatNode(val node: StorageNode, val level: Int)
 
-fun flattenTree(node: StorageNode, level: Int): List<FlatNode> {
+fun flattenTree(node: StorageNode, level: Int, autoExpand: Boolean = false): List<FlatNode> {
     val list = mutableListOf<FlatNode>()
     list.add(FlatNode(node, level))
-
-    if (node is StorageNode.DirectoryNode && node.isExpanded) {
+    if ((node is StorageNode.DirectoryNode) && (node.isExpanded || (autoExpand && node.children.isNotEmpty()))) {
         for (child in node.children) {
-            list.addAll(flattenTree(child, level + 1))
+            list.addAll(flattenTree(child, level + 1, autoExpand = autoExpand))
         }
     }
-
     return list
 }
 
@@ -574,81 +654,68 @@ fun AppleStorageNodeRow(
     node: StorageNode,
     level: Int,
     onToggle: (StorageNode) -> Unit,
-    onLongPress: (StorageNode) -> Unit
+    onLongPress: (StorageNode) -> Unit,
+    modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val paddingStart = 16.dp + (level * 18).dp
 
-    val sizeColor = when {
-        node.size > 5L * 1024 * 1024 * 1024 -> AppleRed
-        node.size > 1L * 1024 * 1024 * 1024 -> AppleOrange
-        node.size > 100L * 1024 * 1024 -> AppleYellow
-        else -> AppleMint
-    }
-
     val isDirectory = node is StorageNode.DirectoryNode
-    val isExpanded = isDirectory && (node as StorageNode.DirectoryNode).isExpanded
+    val isExpanded = isDirectory && node.isExpanded
 
     val chevronRotation by animateFloatAsState(
         targetValue = if (isExpanded) 90f else 0f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioLowBouncy,
-            stiffness = Spring.StiffnessMediumLow
-        ),
+        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow),
         label = "chevronRotation"
     )
 
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 2.dp)
             .clip(RoundedCornerShape(12.dp))
             .combinedClickable(
-                onClick = { onToggle(node) },
+                onClick = {
+                    if (node is StorageNode.FileNode) {
+                        openFile(context, node.file)
+                    } else {
+                        onToggle(node)
+                    }
+                },
                 onLongClick = { onLongPress(node) }
             )
             .padding(start = paddingStart, end = 16.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Expand Chevron for Directories
         if (isDirectory) {
             Icon(
                 imageVector = Icons.Default.ChevronRight,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                modifier = Modifier
-                    .size(16.dp)
-                    .rotate(chevronRotation)
+                tint = AppleBlue,
+                modifier = Modifier.size(16.dp).rotate(chevronRotation)
             )
             Spacer(modifier = Modifier.width(6.dp))
         } else {
             Spacer(modifier = Modifier.width(22.dp))
         }
 
-        // Squircle Icon Badge
-        Box(
-            modifier = Modifier
-                .size(28.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(sizeColor.copy(alpha = 0.15f)),
-            contentAlignment = Alignment.Center
-        ) {
-            val icon = when (node) {
-                is StorageNode.DirectoryNode -> if (isExpanded) Icons.Default.FolderOpen else Icons.Default.Folder
-                is StorageNode.FileNode -> Icons.AutoMirrored.Filled.InsertDriveFile
-            }
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = sizeColor,
-                modifier = Modifier.size(15.dp)
-            )
+        val icon = when (node) {
+            is StorageNode.DirectoryNode -> if (isExpanded) Icons.Default.FolderOpen else Icons.Default.Folder
+            is StorageNode.FileNode -> Icons.AutoMirrored.Filled.InsertDriveFile
         }
+
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = if (isDirectory) AppleYellow else AppleMint,
+            modifier = Modifier.size(18.dp)
+        )
 
         Spacer(modifier = Modifier.width(10.dp))
 
         Text(
             text = node.name,
-            fontSize = 14.sp,
+            fontSize = 13.sp,
             fontWeight = if (isDirectory) FontWeight.SemiBold else FontWeight.Normal,
             color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
@@ -656,19 +723,11 @@ fun AppleStorageNodeRow(
             modifier = Modifier.weight(1f)
         )
 
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
-                .background(sizeColor.copy(alpha = 0.12f))
-                .padding(horizontal = 8.dp, vertical = 3.dp)
-        ) {
-            Text(
-                text = Utils.formatSize(node.size),
-                fontSize = 11.sp,
-                fontFamily = FontFamily.Monospace,
-                color = sizeColor,
-                fontWeight = FontWeight.Bold
-            )
-        }
+        Text(
+            text = Utils.formatSize(node.size),
+            fontSize = 11.sp,
+            fontFamily = FontFamily.Monospace,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
