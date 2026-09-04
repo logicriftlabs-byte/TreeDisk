@@ -3,6 +3,7 @@ package com.example.remote
 import org.apache.commons.net.ftp.FTPClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayInputStream
 
 class FtpProtocol(
     private val host: String,
@@ -46,5 +47,17 @@ class FtpProtocol(
             }
         }
         ftpClient = null
+    }
+
+    override suspend fun createFile(path: String, name: String): Boolean = withContext(Dispatchers.IO) {
+        val client = connect()
+        val targetPath = if (path.endsWith("/")) "$path$name" else "$path/$name"
+        client.storeFile(targetPath, ByteArrayInputStream(ByteArray(0)))
+    }
+
+    override suspend fun createFolder(path: String, name: String): Boolean = withContext(Dispatchers.IO) {
+        val client = connect()
+        val targetPath = if (path.endsWith("/")) "$path$name" else "$path/$name"
+        client.makeDirectory(targetPath)
     }
 }

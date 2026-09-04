@@ -5,6 +5,7 @@ import com.jcraft.jsch.JSch
 import com.jcraft.jsch.Session
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayInputStream
 import java.util.*
 
 class SftpProtocol(
@@ -60,5 +61,27 @@ class SftpProtocol(
         session?.disconnect()
         channel = null
         session = null
+    }
+
+    override suspend fun createFile(path: String, name: String): Boolean = withContext(Dispatchers.IO) {
+        val c = connect()
+        val targetPath = if (path.endsWith("/")) "$path$name" else "$path/$name"
+        try {
+            c.put(ByteArrayInputStream(ByteArray(0)), targetPath)
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    override suspend fun createFolder(path: String, name: String): Boolean = withContext(Dispatchers.IO) {
+        val c = connect()
+        val targetPath = if (path.endsWith("/")) "$path$name" else "$path/$name"
+        try {
+            c.mkdir(targetPath)
+            true
+        } catch (_: Exception) {
+            false
+        }
     }
 }

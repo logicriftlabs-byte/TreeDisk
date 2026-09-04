@@ -1,5 +1,6 @@
 package com.example.ui
 
+import android.os.Environment
 import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.animation.core.Spring
@@ -134,9 +135,16 @@ fun TreeScreen(viewModel: StorageViewModel, onOpenDashboard: () -> Unit = {}, on
     }
 
     if (showCreateDialog) {
+        val defaultPath = if (selectedNodeForCreate != null) {
+            selectedNodeForCreate!!.path
+        } else {
+            val root = rootNode
+            if (root?.isRemote == true) root.path else Environment.getExternalStorageDirectory().absolutePath
+        }
         CreateItemDialog(
             isFolder = isCreatingFolder,
-            initialPath = selectedNodeForCreate?.path ?: android.os.Environment.getExternalStorageDirectory().absolutePath,
+            initialPath = defaultPath,
+            isRemote = rootNode?.isRemote == true,
             onDismiss = { 
                 showCreateDialog = false
                 selectedNodeForCreate = null

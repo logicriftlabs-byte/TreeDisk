@@ -579,6 +579,23 @@ private val _rootNode = MutableStateFlow<StorageNode.DirectoryNode?>(null)
     fun createFile(targetDirPath: String, name: String, onResult: (Boolean, String) -> Unit) {
         viewModelScope.launch {
             try {
+                val currentSelectedId = _selectedRootId.value
+                val remoteConnId = currentSelectedId?.toLongOrNull()
+                val currentRemoteConn = if (remoteConnId != null) remoteConnections.value.find { it.id == remoteConnId } else null
+
+                if (currentRemoteConn != null) {
+                    val protocol = withContext(Dispatchers.IO) { RemoteProtocolFactory.create(currentRemoteConn) }
+                    val success = protocol.createFile(targetDirPath, name)
+                    if (success) {
+                        scanRemoteConnection(currentRemoteConn)
+                        withContext(Dispatchers.Main) { onResult(true, "Remote file created successfully") }
+                    } else {
+                        withContext(Dispatchers.Main) { onResult(false, "Failed to create remote file") }
+                    }
+                    withContext(Dispatchers.IO) { protocol.disconnect() }
+                    return@launch
+                }
+
                 val targetDir = File(targetDirPath)
                 if (!targetDir.exists()) {
                     targetDir.mkdirs()
@@ -586,7 +603,7 @@ private val _rootNode = MutableStateFlow<StorageNode.DirectoryNode?>(null)
                 
                 val newFile = File(targetDir, name)
                 if (newFile.exists()) {
-                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { onResult(false, "File already exists") }
+                    withContext(Dispatchers.Main) { onResult(false, "File already exists") }
                     return@launch
                 }
                 
@@ -594,13 +611,13 @@ private val _rootNode = MutableStateFlow<StorageNode.DirectoryNode?>(null)
                 if (success) {
                     val expanded = _rootNode.value?.let { getExpandedPaths(it) }
                     scanStorage(expanded)
-                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { onResult(true, "File created successfully") }
+                    withContext(Dispatchers.Main) { onResult(true, "File created successfully") }
                 } else {
-                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { onResult(false, "Failed to create file") }
+                    withContext(Dispatchers.Main) { onResult(false, "Failed to create file") }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
-                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { onResult(false, e.message ?: "Error creating file") }
+                withContext(Dispatchers.Main) { onResult(false, e.message ?: "Error creating file") }
             }
         }
     }
@@ -608,6 +625,23 @@ private val _rootNode = MutableStateFlow<StorageNode.DirectoryNode?>(null)
     fun createFolder(targetDirPath: String, name: String, onResult: (Boolean, String) -> Unit) {
         viewModelScope.launch {
             try {
+                val currentSelectedId = _selectedRootId.value
+                val remoteConnId = currentSelectedId?.toLongOrNull()
+                val currentRemoteConn = if (remoteConnId != null) remoteConnections.value.find { it.id == remoteConnId } else null
+
+                if (currentRemoteConn != null) {
+                    val protocol = withContext(Dispatchers.IO) { RemoteProtocolFactory.create(currentRemoteConn) }
+                    val success = protocol.createFolder(targetDirPath, name)
+                    if (success) {
+                        scanRemoteConnection(currentRemoteConn)
+                        withContext(Dispatchers.Main) { onResult(true, "Remote folder created successfully") }
+                    } else {
+                        withContext(Dispatchers.Main) { onResult(false, "Failed to create remote folder") }
+                    }
+                    withContext(Dispatchers.IO) { protocol.disconnect() }
+                    return@launch
+                }
+
                 val targetDir = java.io.File(targetDirPath)
                 if (!targetDir.exists()) {
                     targetDir.mkdirs()
@@ -615,7 +649,7 @@ private val _rootNode = MutableStateFlow<StorageNode.DirectoryNode?>(null)
                 
                 val newFolder = java.io.File(targetDir, name)
                 if (newFolder.exists()) {
-                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { onResult(false, "Folder already exists") }
+                    withContext(Dispatchers.Main) { onResult(false, "Folder already exists") }
                     return@launch
                 }
                 
@@ -623,13 +657,13 @@ private val _rootNode = MutableStateFlow<StorageNode.DirectoryNode?>(null)
                 if (success) {
                     val expanded = _rootNode.value?.let { getExpandedPaths(it) }
                     scanStorage(expanded)
-                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { onResult(true, "Folder created successfully") }
+                    withContext(Dispatchers.Main) { onResult(true, "Folder created successfully") }
                 } else {
-                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { onResult(false, "Failed to create folder") }
+                    withContext(Dispatchers.Main) { onResult(false, "Failed to create folder") }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
-                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { onResult(false, e.message ?: "Error creating folder") }
+                withContext(Dispatchers.Main) { onResult(false, e.message ?: "Error creating folder") }
             }
         }
     }

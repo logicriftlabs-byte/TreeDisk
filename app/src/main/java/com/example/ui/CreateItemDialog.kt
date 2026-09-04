@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.dp
 fun CreateItemDialog(
     isFolder: Boolean,
     initialPath: String,
+    isRemote: Boolean = false,
     onDismiss: () -> Unit,
     onCreate: (String, String) -> Unit, // path, name
 ) {
@@ -47,8 +48,10 @@ fun CreateItemDialog(
                         modifier = Modifier.weight(1f)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Button(onClick = { showFolderPicker = true }) {
-                        Text("Browse")
+                    if (!isRemote) {
+                        Button(onClick = { showFolderPicker = true }) {
+                            Text("Browse")
+                        }
                     }
                 }
                 OutlinedTextField(

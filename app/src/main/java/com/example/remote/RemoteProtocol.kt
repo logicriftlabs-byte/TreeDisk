@@ -16,4 +16,6 @@ interface RemoteProtocol {
     suspend fun listFiles(path: String): List<RemoteFile>
     suspend fun testConnection()
     suspend fun disconnect()
+    suspend fun createFile(path: String, name: String): Boolean
+    suspend fun createFolder(path: String, name: String): Boolean
 }

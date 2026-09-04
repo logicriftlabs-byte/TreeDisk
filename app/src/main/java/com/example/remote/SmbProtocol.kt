@@ -1,5 +1,9 @@
 package com.example.remote
 
+import com.hierynomus.msdtyp.AccessMask
+import com.hierynomus.msfscc.FileAttributes
+import com.hierynomus.mssmb2.SMB2CreateDisposition
+import com.hierynomus.mssmb2.SMB2ShareAccess
 import com.hierynomus.smbj.SMBClient
 import com.hierynomus.smbj.auth.AuthenticationContext
 import com.hierynomus.smbj.session.Session
@@ -69,5 +73,49 @@ class SmbProtocol(
         client?.close()
         session = null
         client = null
+    }
+
+    override suspend fun createFile(path: String, name: String): Boolean = withContext(Dispatchers.IO) {
+        val sess = getSession()
+        val parts = path.trimStart('/').split('/', limit = 2)
+        val shareName = parts[0]
+        if (shareName.isEmpty()) return@withContext false
+        
+        val folderPath = if (parts.size > 1) parts[1] else ""
+        val targetPath = if (folderPath.isEmpty()) name else "$folderPath\\$name"
+        
+        try {
+            val share = sess.connectShare(shareName) as DiskShare
+            val f = share.openFile(
+                targetPath, 
+                setOf(AccessMask.GENERIC_WRITE),
+                setOf(FileAttributes.FILE_ATTRIBUTE_NORMAL),
+                SMB2ShareAccess.ALL,
+                SMB2CreateDisposition.FILE_CREATE,
+                null
+            )
+            f.close()
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    override suspend fun createFolder(path: String, name: String): Boolean = withContext(Dispatchers.IO) {
+        val sess = getSession()
+        val parts = path.trimStart('/').split('/', limit = 2)
+        val shareName = parts[0]
+        if (shareName.isEmpty()) return@withContext false
+        
+        val folderPath = if (parts.size > 1) parts[1] else ""
+        val targetPath = if (folderPath.isEmpty()) name else "$folderPath\\$name"
+        
+        try {
+            val share = sess.connectShare(shareName) as DiskShare
+            share.mkdir(targetPath)
+            true
+        } catch (_: Exception) {
+            false
+        }
     }
 }
