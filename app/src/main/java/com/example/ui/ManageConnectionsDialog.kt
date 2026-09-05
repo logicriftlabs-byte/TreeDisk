@@ -1,10 +1,12 @@
 package com.example.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -26,6 +28,7 @@ import com.example.ui.theme.AppleRed
 fun ManageConnectionsDialog(
     connections: List<RemoteConnection>,
     onDismiss: () -> Unit,
+    onAddClick: (() -> Unit)? = null,
     onEdit: (RemoteConnection) -> Unit,
     onDelete: (RemoteConnection) -> Unit,
     onTest: (RemoteConnection, (Boolean, String?) -> Unit) -> Unit,
@@ -38,7 +41,23 @@ fun ManageConnectionsDialog(
         title = { Text("Manage Connections", fontWeight = FontWeight.Bold) },
         text = {
             if (connections.isEmpty()) {
-                Text("No saved connections.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text("No saved connections.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (onAddClick != null) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OutlinedButton(
+                            onClick = onAddClick,
+                            border = BorderStroke(1.dp, AppleBlue.copy(alpha = 0.6f))
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, tint = AppleBlue, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Add Connection", color = AppleBlue)
+                        }
+                    }
+                }
             } else {
                 LazyColumn(modifier = Modifier.fillMaxWidth()) {
                     items(connections, key = { it.id }) { conn ->
@@ -140,8 +159,20 @@ fun ManageConnectionsDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Done")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (onAddClick != null && connections.isNotEmpty()) {
+                    OutlinedButton(
+                        onClick = onAddClick,
+                        border = BorderStroke(1.dp, AppleBlue.copy(alpha = 0.6f))
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, tint = AppleBlue, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Add Connection", color = AppleBlue)
+                    }
+                }
+                TextButton(onClick = onDismiss) {
+                    Text("Done")
+                }
             }
         }
     )

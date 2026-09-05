@@ -45,7 +45,6 @@ import com.example.StorageViewModel
 import com.example.Utils
 import com.example.data.RemoteConnection
 import com.example.ui.theme.*
-import com.example.ui.filterAndSortTree
 import com.example.ui.countNodes
 import com.example.ui.SortDropdownMenu
 import com.example.ui.FilterDialog
@@ -190,6 +189,10 @@ fun TreeScreen(viewModel: StorageViewModel, onOpenDashboard: () -> Unit = {}, on
         ManageConnectionsDialog(
             connections = remoteConnections,
             onDismiss = { showManageConnectionsDialog = false },
+            onAddClick = {
+                showManageConnectionsDialog = false
+                showAddRemoteDialog = true
+            },
             onEdit = { conn ->
                 connectionToEdit = conn
             },
