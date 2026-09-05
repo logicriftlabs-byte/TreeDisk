@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DriveFileMove
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.automirrored.filled.NoteAdd
 import androidx.compose.material.icons.automirrored.filled.Sort
@@ -44,8 +45,6 @@ import com.example.StorageViewModel
 import com.example.Utils
 import com.example.data.RemoteConnection
 import com.example.ui.theme.*
-import com.example.ui.ItemTypeFilter
-import com.example.ui.FileSizeFilter
 import com.example.ui.StorageFilterConfig
 import com.example.ui.filterAndSortTree
 import com.example.ui.countNodes
@@ -70,6 +69,37 @@ fun getTopLevelSelectedPaths(selectedPaths: List<String>): Set<String> {
             other != path && path.startsWith(if (other.endsWith("/")) other else "$other/")
         }
     }.toSet()
+}
+
+fun getSelectionMetrics(rootNode: StorageNode?, selectedPaths: List<String>): Triple<Int, Int, Long> {
+    val selectedSet = selectedPaths.toSet()
+    var fileCount = 0
+    var folderCount = 0
+    var totalBytes = 0L
+
+    fun traverse(node: StorageNode) {
+        if (selectedSet.contains(node.path)) {
+            when (node) {
+                is StorageNode.FileNode -> {
+                    fileCount++
+                    totalBytes += node.size
+                }
+                is StorageNode.DirectoryNode -> {
+                    folderCount++
+                    for (child in node.children) {
+                        traverse(child)
+                    }
+                }
+            }
+        } else if (node is StorageNode.DirectoryNode) {
+            for (child in node.children) {
+                traverse(child)
+            }
+        }
+    }
+
+    rootNode?.let { traverse(it) }
+    return Triple(fileCount, folderCount, totalBytes)
 }
 
 @Composable
@@ -113,6 +143,8 @@ fun TreeScreen(viewModel: StorageViewModel, onOpenDashboard: () -> Unit = {}, on
     var isSelectionMode by remember { mutableStateOf(false) }
     val selectedPaths = remember { mutableStateListOf<String>() }
     var showBatchDeleteConfirmDialog by remember { mutableStateOf(false) }
+    var showDestinationDialog by remember { mutableStateOf(false) }
+    var isCopyOperation by remember { mutableStateOf(true) }
 
     var selectedNodeForMenu by remember { mutableStateOf<StorageNode?>(null) }
     var selectedNodeForDelete by remember { mutableStateOf<StorageNode?>(null) }
@@ -254,83 +286,17 @@ fun TreeScreen(viewModel: StorageViewModel, onOpenDashboard: () -> Unit = {}, on
 
     Scaffold(
         topBar = {
-            Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)) {
-                // Selection Mode Banner
-                AnimatedVisibility(
-                    visible = isSelectionMode,
-                    enter = expandVertically() + fadeIn(),
-                    exit = shrinkVertically() + fadeOut()
-                ) {
-                    val topSelectedCount = getTopLevelSelectedPaths(selectedPaths).size
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.95f),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, AppleBlue.copy(alpha = 0.4f))
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                IconButton(onClick = {
-                                    isSelectionMode = false
-                                    selectedPaths.clear()
-                                }) {
-                                    Icon(Icons.Default.Close, contentDescription = "Exit Selection", tint = MaterialTheme.colorScheme.onSurface)
-                                }
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Column {
-                                    Text(
-                                        text = "$topSelectedCount item(s) selected",
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Text(
-                                        text = "${selectedPaths.size} total including contents",
-                                        fontSize = 10.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                TextButton(onClick = {
-                                    processedRootNode?.let { root ->
-                                        val allPaths = getAllNodePaths(root)
-                                        if (selectedPaths.size >= allPaths.size) {
-                                            selectedPaths.clear()
-                                        } else {
-                                            allPaths.forEach { p -> if (!selectedPaths.contains(p)) selectedPaths.add(p) }
-                                        }
-                                    }
-                                }) {
-                                    val allPathsCount = processedRootNode?.let { getAllNodePaths(it).size } ?: 0
-                                    val isAllSelected = selectedPaths.size >= allPathsCount && allPathsCount > 0
-                                    Text(if (isAllSelected) "Deselect All" else "Select All", fontSize = 12.sp, color = AppleBlue)
-                                }
-
-                                if (topSelectedCount > 0) {
-                                    IconButton(onClick = {
-                                        showBatchDeleteConfirmDialog = true
-                                    }) {
-                                        Icon(Icons.Default.Delete, contentDescription = "Delete Selected", tint = AppleRed)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.background)
+                    .statusBarsPadding()
+            ) {
                 // Top header
                 Box(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp).statusBarsPadding(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Row(
@@ -370,6 +336,48 @@ fun TreeScreen(viewModel: StorageViewModel, onOpenDashboard: () -> Unit = {}, on
                         }
                         IconButton(onClick = onOpenSettings) {
                             Icon(imageVector = Icons.Default.Settings, contentDescription = "Settings", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+
+                // Selection Mode Metrics Card (positioned directly below NucleusFS header)
+                AnimatedVisibility(
+                    visible = isSelectionMode,
+                    enter = expandVertically() + fadeIn(),
+                    exit = shrinkVertically() + fadeOut()
+                ) {
+                    val topSelectedCount = getTopLevelSelectedPaths(selectedPaths).size
+                    val (fileCount, folderCount, totalBytes) = getSelectionMetrics(rootNode, selectedPaths)
+
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, AppleBlue.copy(alpha = 0.35f))
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(
+                                    text = "$topSelectedCount item(s) selected",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "$fileCount File(s), $folderCount Folder(s) • Total: ${Utils.formatSize(totalBytes)}",
+                                    fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }
@@ -462,6 +470,143 @@ fun TreeScreen(viewModel: StorageViewModel, onOpenDashboard: () -> Unit = {}, on
                     .padding(16.dp)
                     .navigationBarsPadding()
             ) {
+                // Selection Action Row ABOVE Filters (shown when in select mode)
+                AnimatedVisibility(
+                    visible = isSelectionMode,
+                    enter = expandVertically() + fadeIn(),
+                    exit = shrinkVertically() + fadeOut()
+                ) {
+                    val topSelectedCount = getTopLevelSelectedPaths(selectedPaths).size
+                    Column {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Copy to
+                            Surface(
+                                onClick = {
+                                    if (topSelectedCount == 0) {
+                                        Toast.makeText(context, "Select at least one item first", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        isCopyOperation = true
+                                        showDestinationDialog = true
+                                    }
+                                },
+                                color = AppleBlue.copy(alpha = 0.15f),
+                                shape = RoundedCornerShape(10.dp),
+                                border = BorderStroke(1.dp, AppleBlue.copy(alpha = 0.4f)),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ContentCopy,
+                                        contentDescription = null,
+                                        tint = AppleBlue,
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Copy to", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = AppleBlue)
+                                }
+                            }
+
+                            // Move to
+                            Surface(
+                                onClick = {
+                                    if (topSelectedCount == 0) {
+                                        Toast.makeText(context, "Select at least one item first", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        isCopyOperation = false
+                                        showDestinationDialog = true
+                                    }
+                                },
+                                color = AppleOrange.copy(alpha = 0.15f),
+                                shape = RoundedCornerShape(10.dp),
+                                border = BorderStroke(1.dp, AppleOrange.copy(alpha = 0.4f)),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.DriveFileMove,
+                                        contentDescription = null,
+                                        tint = AppleOrange,
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Move to", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = AppleOrange)
+                                }
+                            }
+
+                            // Delete
+                            Surface(
+                                onClick = {
+                                    if (topSelectedCount == 0) {
+                                        Toast.makeText(context, "Select at least one item first", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        showBatchDeleteConfirmDialog = true
+                                    }
+                                },
+                                color = AppleRed.copy(alpha = 0.15f),
+                                shape = RoundedCornerShape(10.dp),
+                                border = BorderStroke(1.dp, AppleRed.copy(alpha = 0.4f)),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = null,
+                                        tint = AppleRed,
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Delete", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = AppleRed)
+                                }
+                            }
+
+                            // Clear (X button)
+                            Surface(
+                                onClick = {
+                                    isSelectionMode = false
+                                    selectedPaths.clear()
+                                },
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                shape = RoundedCornerShape(10.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                            ) {
+                                Box(
+                                    modifier = Modifier.padding(8.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Clear",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(bottom = 12.dp),
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+                        )
+                    }
+                }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -583,49 +728,51 @@ fun TreeScreen(viewModel: StorageViewModel, onOpenDashboard: () -> Unit = {}, on
             }
         },
         floatingActionButton = {
-            Box {
-                FloatingActionButton(
-                    onClick = { showFabMenu = true },
-                    containerColor = AppleMint,
-                    contentColor = Color.Black,
-                    shape = CircleShape
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Add Menu")
-                }
-                
-                DropdownMenu(
-                    expanded = showFabMenu,
-                    onDismissRequest = { showFabMenu = false },
-                    modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant)
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("New Connection") },
-                        onClick = {
-                            showFabMenu = false
-                            showAddRemoteDialog = true
-                        },
-                        leadingIcon = { Icon(Icons.Default.Cloud, contentDescription = null) }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("New Folder") },
-                        onClick = {
-                            showFabMenu = false
-                            isCreatingFolder = true
-                            selectedNodeForCreate = lastExpandedNode // Pre-select the last expanded folder
-                            showCreateDialog = true
-                        },
-                        leadingIcon = { Icon(Icons.Default.CreateNewFolder, contentDescription = null) }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("New File") },
-                        onClick = {
-                            showFabMenu = false
-                            isCreatingFolder = false
-                            selectedNodeForCreate = lastExpandedNode // Pre-select the last expanded folder
-                            showCreateDialog = true
-                        },
-                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.NoteAdd, contentDescription = null) }
-                    )
+            if (!isSelectionMode) {
+                Box {
+                    FloatingActionButton(
+                        onClick = { showFabMenu = true },
+                        containerColor = AppleMint,
+                        contentColor = Color.Black,
+                        shape = CircleShape
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Add Menu")
+                    }
+                    
+                    DropdownMenu(
+                        expanded = showFabMenu,
+                        onDismissRequest = { showFabMenu = false },
+                        modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("New Connection") },
+                            onClick = {
+                                showFabMenu = false
+                                showAddRemoteDialog = true
+                            },
+                            leadingIcon = { Icon(Icons.Default.Cloud, contentDescription = null) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("New Folder") },
+                            onClick = {
+                                showFabMenu = false
+                                isCreatingFolder = true
+                                selectedNodeForCreate = lastExpandedNode // Pre-select the last expanded folder
+                                showCreateDialog = true
+                            },
+                            leadingIcon = { Icon(Icons.Default.CreateNewFolder, contentDescription = null) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("New File") },
+                            onClick = {
+                                showFabMenu = false
+                                isCreatingFolder = false
+                                selectedNodeForCreate = lastExpandedNode // Pre-select the last expanded folder
+                                showCreateDialog = true
+                            },
+                            leadingIcon = { Icon(Icons.AutoMirrored.Filled.NoteAdd, contentDescription = null) }
+                        )
+                    }
                 }
             }
         },
@@ -817,6 +964,76 @@ fun TreeScreen(viewModel: StorageViewModel, onOpenDashboard: () -> Unit = {}, on
             },
             dismissButton = {
                 TextButton(onClick = { showBatchDeleteConfirmDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if (showDestinationDialog) {
+        val topPaths = getTopLevelSelectedPaths(selectedPaths)
+        val defaultDest = rootNode?.path ?: Environment.getExternalStorageDirectory().absolutePath
+        var targetPath by remember { mutableStateOf(defaultDest) }
+
+        AlertDialog(
+            onDismissRequest = { showDestinationDialog = false },
+            title = { Text(if (isCopyOperation) "Copy ${topPaths.size} item(s) to" else "Move ${topPaths.size} item(s) to") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = if (isCopyOperation)
+                            "Enter destination folder path for copying ${topPaths.size} item(s):"
+                        else
+                            "Enter destination folder path for moving ${topPaths.size} item(s):",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = targetPath,
+                        onValueChange = { targetPath = it },
+                        label = { Text("Destination Directory") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val nodesToProcess = mutableListOf<StorageNode>()
+                        fun findNodesByPaths(current: StorageNode, paths: Set<String>) {
+                            if (paths.contains(current.path)) {
+                                nodesToProcess.add(current)
+                            } else if (current is StorageNode.DirectoryNode) {
+                                for (child in current.children) {
+                                    findNodesByPaths(child, paths)
+                                }
+                            }
+                        }
+                        rootNode?.let { findNodesByPaths(it, topPaths) }
+
+                        if (nodesToProcess.isNotEmpty()) {
+                            if (isCopyOperation) {
+                                viewModel.copyNodes(nodesToProcess, targetPath) { _, msg ->
+                                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                }
+                            } else {
+                                viewModel.moveNodes(nodesToProcess, targetPath) { _, msg ->
+                                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                        selectedPaths.clear()
+                        isSelectionMode = false
+                        showDestinationDialog = false
+                    },
+                    enabled = targetPath.isNotBlank()
+                ) {
+                    Text(if (isCopyOperation) "Copy" else "Move")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDestinationDialog = false }) {
                     Text("Cancel")
                 }
             }

@@ -481,6 +481,93 @@ private val _rootNode = MutableStateFlow<StorageNode.DirectoryNode?>(null)
         }
     }
 
+    fun copyNodes(nodes: List<StorageNode>, targetDirPath: String, onResult: (Boolean, String) -> Unit = { _, _ -> }) {
+        viewModelScope.launch {
+            _isScanning.value = true
+            var successCount = 0
+            var failCount = 0
+
+            withContext(Dispatchers.IO) {
+                val targetDir = File(targetDirPath)
+                if (!targetDir.exists()) {
+                    targetDir.mkdirs()
+                }
+
+                nodes.forEach { node ->
+                    try {
+                        val srcFile = (node as? StorageNode.FileNode)?.file ?: (node as? StorageNode.DirectoryNode)?.file
+                        if (srcFile != null && srcFile.exists()) {
+                            val destFile = File(targetDir, srcFile.name)
+                            if (srcFile.isDirectory) {
+                                srcFile.copyRecursively(destFile, overwrite = true)
+                            } else {
+                                srcFile.copyTo(destFile, overwrite = true)
+                            }
+                            successCount++
+                        }
+                    } catch (_: Exception) {
+                        failCount++
+                    }
+                }
+            }
+
+            if (failCount == 0) {
+                onResult(true, "Successfully copied $successCount item(s)")
+            } else {
+                onResult(false, "Copied $successCount item(s), $failCount failed")
+            }
+
+            val preservedPaths = _rootNode.value?.let { getExpandedPaths(it) }
+            scanStorage(preservedPaths)
+        }
+    }
+
+    fun moveNodes(nodes: List<StorageNode>, targetDirPath: String, onResult: (Boolean, String) -> Unit = { _, _ -> }) {
+        viewModelScope.launch {
+            _isScanning.value = true
+            var successCount = 0
+            var failCount = 0
+
+            withContext(Dispatchers.IO) {
+                val targetDir = File(targetDirPath)
+                if (!targetDir.exists()) {
+                    targetDir.mkdirs()
+                }
+
+                nodes.forEach { node ->
+                    try {
+                        val srcFile = (node as? StorageNode.FileNode)?.file ?: (node as? StorageNode.DirectoryNode)?.file
+                        if (srcFile != null && srcFile.exists()) {
+                            val destFile = File(targetDir, srcFile.name)
+                            val moved = if (srcFile.renameTo(destFile)) {
+                                true
+                            } else {
+                                if (srcFile.isDirectory) {
+                                    srcFile.copyRecursively(destFile, overwrite = true) && srcFile.deleteRecursively()
+                                } else {
+                                    srcFile.copyTo(destFile, overwrite = true)
+                                    srcFile.delete()
+                                }
+                            }
+                            if (moved) successCount++ else failCount++
+                        }
+                    } catch (_: Exception) {
+                        failCount++
+                    }
+                }
+            }
+
+            if (failCount == 0) {
+                onResult(true, "Successfully moved $successCount item(s)")
+            } else {
+                onResult(false, "Moved $successCount item(s), $failCount failed")
+            }
+
+            val preservedPaths = _rootNode.value?.let { getExpandedPaths(it) }
+            scanStorage(preservedPaths)
+        }
+    }
+
     fun testConnection(connection: RemoteConnection, onResult: (Boolean, String?) -> Unit) {
         viewModelScope.launch {
             try {
