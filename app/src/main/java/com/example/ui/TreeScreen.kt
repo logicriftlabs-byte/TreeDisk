@@ -34,15 +34,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ConnectionStatus
 import com.example.StorageNode
 import com.example.StorageViewModel
 import com.example.Utils
+import com.example.data.RemoteConnection
 import com.example.ui.theme.*
-import com.example.ui.openFile
-import com.example.ui.WindowsDeleteConfirmDialog
 import com.example.ui.StorageSortOption
 import com.example.ui.ItemTypeFilter
 import com.example.ui.FileSizeFilter
@@ -59,6 +60,7 @@ fun TreeScreen(viewModel: StorageViewModel, onOpenDashboard: () -> Unit = {}, on
     val selectedRootId by viewModel.selectedRootId.collectAsState()
     val isScanning by viewModel.isScanning.collectAsState()
     val remoteConnections by viewModel.remoteConnections.collectAsState()
+    val connectionStatuses by viewModel.connectionStatuses.collectAsState()
 
     var sortOption by remember { mutableStateOf(StorageSortOption.NAME_ASC) }
     var foldersFirst by remember { mutableStateOf(true) }
@@ -93,6 +95,7 @@ fun TreeScreen(viewModel: StorageViewModel, onOpenDashboard: () -> Unit = {}, on
     var selectedNodeForDelete by remember { mutableStateOf<StorageNode?>(null) }
     var showAddRemoteDialog by remember { mutableStateOf(false) }
     var showManageConnectionsDialog by remember { mutableStateOf(false) }
+    var connectionToEdit by remember { mutableStateOf<RemoteConnection?>(null) }
     var showFabMenu by remember { mutableStateOf(false) }
     var showCreateDialog by remember { mutableStateOf(false) }
     var isCreatingFolder by remember { mutableStateOf(false) }
@@ -128,8 +131,35 @@ fun TreeScreen(viewModel: StorageViewModel, onOpenDashboard: () -> Unit = {}, on
         ManageConnectionsDialog(
             connections = remoteConnections,
             onDismiss = { showManageConnectionsDialog = false },
+            onEdit = { conn ->
+                connectionToEdit = conn
+            },
             onDelete = { conn ->
                 viewModel.deleteRemoteConnection(conn)
+            },
+            onTest = { conn, callback ->
+                viewModel.testConnection(conn, callback)
+            }
+        )
+    }
+
+    if (connectionToEdit != null) {
+        AddRemoteConnectionDialog(
+            connectionToEdit = connectionToEdit,
+            onDismiss = { connectionToEdit = null },
+            onAdd = { updatedConn, callback ->
+                viewModel.testAndAddRemoteConnection(updatedConn) { success, msg ->
+                    callback(success, msg)
+                    if (success) {
+                        connectionToEdit = null
+                    }
+                    if (msg != null) {
+                        Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                    }
+                }
+            },
+            onTest = { conn, callback ->
+                viewModel.testConnection(conn, callback)
             }
         )
     }
@@ -178,6 +208,9 @@ fun TreeScreen(viewModel: StorageViewModel, onOpenDashboard: () -> Unit = {}, on
                         Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
                     }
                 }
+            },
+            onTest = { connection, callback ->
+                viewModel.testConnection(connection, callback)
             }
         )
     }
@@ -287,11 +320,27 @@ fun TreeScreen(viewModel: StorageViewModel, onOpenDashboard: () -> Unit = {}, on
                                 val root = activeRoots[index]
                                 val rootId = root.connectionId?.toString() ?: "local"
                                 val isSelected = rootId == selectedRootId
+
+                                val connStatus = root.connectionId?.let { connectionStatuses[it] }
+                                val usageText = when {
+                                    !root.isRemote -> "Internal"
+                                    connStatus is ConnectionStatus.Connecting -> "Connecting..."
+                                    connStatus is ConnectionStatus.Offline -> "Offline"
+                                    connStatus is ConnectionStatus.Online -> "Online"
+                                    else -> "Remote"
+                                }
+                                val nodeColor = when {
+                                    !root.isRemote -> AppleMint
+                                    connStatus is ConnectionStatus.Connecting -> AppleYellow
+                                    connStatus is ConnectionStatus.Offline -> AppleRed
+                                    else -> AppleBlue
+                                }
+
                                 NodeCard(
                                     type = if (root.isRemote) "CLOUD" else "LOCAL",
                                     name = root.name,
-                                    usage = if (root.isRemote) "Active" else "Internal",
-                                    color = if (root.isRemote) AppleBlue else AppleMint,
+                                    usage = usageText,
+                                    color = nodeColor,
                                     isSelected = isSelected,
                                     isCollapsed = isCollapsed,
                                     onClick = { viewModel.selectRoot(rootId) }
@@ -486,7 +535,50 @@ fun TreeScreen(viewModel: StorageViewModel, onOpenDashboard: () -> Unit = {}, on
             modifier = Modifier.fillMaxSize().padding(paddingValues),
             contentPadding = PaddingValues(bottom = 80.dp)
         ) {
-            if (rootNode == null) {
+            val activeConnStatus = rootNode?.connectionId?.let { connectionStatuses[it] }
+            if (activeConnStatus is ConnectionStatus.Offline) {
+                item(key = "offline_error_state") {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ErrorOutline,
+                            contentDescription = null,
+                            tint = AppleRed,
+                            modifier = Modifier.size(44.dp)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "Connection Failed",
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = activeConnStatus.error,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        OutlinedButton(
+                            onClick = {
+                                selectedRootId?.let { viewModel.selectRoot(it) }
+                            },
+                            border = BorderStroke(1.dp, AppleBlue.copy(alpha = 0.6f)),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = null, tint = AppleBlue, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Retry Connection", color = AppleBlue, fontSize = 12.sp)
+                        }
+                    }
+                }
+            } else if (rootNode == null) {
                 item {
                     Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
                         Text(if (isScanning) "Scanning directory tree..." else "No storage data.", color = MaterialTheme.colorScheme.onSurfaceVariant)

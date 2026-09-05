@@ -17,6 +17,12 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import java.io.File
 
+sealed class ConnectionStatus {
+    object Online : ConnectionStatus()
+    object Connecting : ConnectionStatus()
+    data class Offline(val error: String) : ConnectionStatus()
+}
+
 class StorageViewModel(application: Application) : AndroidViewModel(application) {
     private val dataStoreManager = com.example.data.RemoteConnectionDataStore(application)
     private val analyzer = StorageAnalyzer()
@@ -75,6 +81,9 @@ class StorageViewModel(application: Application) : AndroidViewModel(application)
 
 private val _rootNode = MutableStateFlow<StorageNode.DirectoryNode?>(null)
     val rootNode: StateFlow<StorageNode.DirectoryNode?> = _rootNode.asStateFlow()
+
+    private val _connectionStatuses = MutableStateFlow<Map<Long, ConnectionStatus>>(emptyMap())
+    val connectionStatuses: StateFlow<Map<Long, ConnectionStatus>> = _connectionStatuses.asStateFlow()
 
     private val _topFiles = MutableStateFlow<List<StorageNode.FileNode>>(emptyList())
     val topFiles: StateFlow<List<StorageNode.FileNode>> = _topFiles.asStateFlow()
@@ -138,6 +147,7 @@ private val _rootNode = MutableStateFlow<StorageNode.DirectoryNode?>(null)
                             isRemote = true,
                             connectionId = conn.id,
                         )
+                        scanRemoteConnection(conn)
                     } else {
                         val existing = _remoteRoots[conn.id]
                         if (existing != null && (existing.name != conn.name || existing.path != conn.remotePath)) {
@@ -435,6 +445,29 @@ private val _rootNode = MutableStateFlow<StorageNode.DirectoryNode?>(null)
         }
     }
 
+    fun testConnection(connection: RemoteConnection, onResult: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val protocol = withContext(Dispatchers.IO) { RemoteProtocolFactory.create(connection) }
+                withContext(Dispatchers.IO) {
+                    protocol.testConnection()
+                    protocol.disconnect()
+                }
+                if (connection.id != 0L) {
+                    _connectionStatuses.value = _connectionStatuses.value + (connection.id to ConnectionStatus.Online)
+                }
+                onResult(true, "Connection is valid and reachable")
+            } catch (e: Exception) {
+                e.printStackTrace()
+                val errorMsg = e.message ?: "Connection check failed"
+                if (connection.id != 0L) {
+                    _connectionStatuses.value = _connectionStatuses.value + (connection.id to ConnectionStatus.Offline(errorMsg))
+                }
+                onResult(false, errorMsg)
+            }
+        }
+    }
+
     fun testAndAddRemoteConnection(connection: RemoteConnection, onResult: (Boolean, String?) -> Unit) {
         if (connection.name.isBlank()) {
             onResult(false, "Connection name is required")
@@ -454,6 +487,7 @@ private val _rootNode = MutableStateFlow<StorageNode.DirectoryNode?>(null)
                 }
                 
                 val savedConn = dataStoreManager.saveConnection(connection)
+                _connectionStatuses.value = _connectionStatuses.value + (savedConn.id to ConnectionStatus.Online)
                 selectRoot(savedConn.id.toString())
                 onResult(true, null)
             } catch (e: Exception) {
@@ -467,6 +501,7 @@ private val _rootNode = MutableStateFlow<StorageNode.DirectoryNode?>(null)
         viewModelScope.launch {
             dataStoreManager.deleteConnection(connection)
             _remoteRoots.remove(connection.id)
+            _connectionStatuses.value = _connectionStatuses.value - connection.id
             if (_selectedRootId.value == connection.id.toString()) {
                 _selectedRootId.value = "local"
             }
@@ -477,6 +512,7 @@ private val _rootNode = MutableStateFlow<StorageNode.DirectoryNode?>(null)
     fun scanRemoteConnection(connection: RemoteConnection) {
         viewModelScope.launch {
             _isScanning.value = true
+            _connectionStatuses.value = _connectionStatuses.value + (connection.id to ConnectionStatus.Connecting)
             try {
                 val targetPath = connection.remotePath.ifBlank { "/" }
                 val protocol = withContext(Dispatchers.IO) { RemoteProtocolFactory.create(connection) }
@@ -514,10 +550,24 @@ private val _rootNode = MutableStateFlow<StorageNode.DirectoryNode?>(null)
                     connectionId = connection.id,
                 )
                 
+                _connectionStatuses.value = _connectionStatuses.value + (connection.id to ConnectionStatus.Online)
                 rebuildVirtualRoot()
                 withContext(Dispatchers.IO) { protocol.disconnect() }
             } catch (e: Exception) {
                 e.printStackTrace()
+                val errorMsg = e.message ?: "Connection failed"
+                _connectionStatuses.value = _connectionStatuses.value + (connection.id to ConnectionStatus.Offline(errorMsg))
+                _remoteRoots[connection.id] = StorageNode.DirectoryNode(
+                    name = connection.name,
+                    size = 0L,
+                    path = connection.remotePath.ifBlank { "/" },
+                    childrenCount = 0,
+                    children = emptyList(),
+                    isExpanded = true,
+                    isRemote = true,
+                    connectionId = connection.id,
+                )
+                rebuildVirtualRoot()
             } finally {
                 _isScanning.value = false
             }
@@ -642,12 +692,12 @@ private val _rootNode = MutableStateFlow<StorageNode.DirectoryNode?>(null)
                     return@launch
                 }
 
-                val targetDir = java.io.File(targetDirPath)
+                val targetDir = File(targetDirPath)
                 if (!targetDir.exists()) {
                     targetDir.mkdirs()
                 }
                 
-                val newFolder = java.io.File(targetDir, name)
+                val newFolder = File(targetDir, name)
                 if (newFolder.exists()) {
                     withContext(Dispatchers.Main) { onResult(false, "Folder already exists") }
                     return@launch

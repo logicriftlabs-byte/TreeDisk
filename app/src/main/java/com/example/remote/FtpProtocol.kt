@@ -1,6 +1,7 @@
 package com.example.remote
 
 import org.apache.commons.net.ftp.FTPClient
+import org.apache.commons.net.ftp.FTPReply
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayInputStream
@@ -15,16 +16,46 @@ class FtpProtocol(
     private var ftpClient: FTPClient? = null
 
     private suspend fun connect(): FTPClient = withContext(Dispatchers.IO) {
-        val client = ftpClient ?: FTPClient().apply {
-            connect(host, port)
-            login(username, password)
-            enterLocalPassiveMode()
+        val current = ftpClient
+        if ((current != null) && current.isConnected) {
+            return@withContext current
         }
+
+        val client = FTPClient().apply {
+            defaultTimeout = 10000
+            connectTimeout = 10000
+            setDataTimeout(10000)
+        }
+
+        try {
+            client.connect(host, port)
+        } catch (e: Exception) {
+            throw Exception("Failed to connect to FTP host $host:$port - ${e.localizedMessage}")
+        }
+
+        val replyCode = client.replyCode
+        if (!FTPReply.isPositiveCompletion(replyCode)) {
+            client.disconnect()
+            throw Exception("FTP server $host:$port refused connection (Reply code: $replyCode)")
+        }
+
+        val loggedIn = client.login(username, password)
+        if (!loggedIn) {
+            client.disconnect()
+            throw Exception("FTP authentication failed for user '$username'. Please check credentials.")
+        }
+
+        client.enterLocalPassiveMode()
         ftpClient = client
         client
     }
 
-    override suspend fun testConnection() { connect() }
+    override suspend fun testConnection() {
+        val client = connect()
+        if (!client.isConnected) {
+            throw Exception("FTP connection test failed")
+        }
+    }
     override suspend fun listFiles(path: String): List<RemoteFile> = withContext(Dispatchers.IO) {
         val client = connect()
         client.changeWorkingDirectory(path)

@@ -5,11 +5,13 @@ import com.hierynomus.msfscc.FileAttributes
 import com.hierynomus.mssmb2.SMB2CreateDisposition
 import com.hierynomus.mssmb2.SMB2ShareAccess
 import com.hierynomus.smbj.SMBClient
+import com.hierynomus.smbj.SmbConfig
 import com.hierynomus.smbj.auth.AuthenticationContext
 import com.hierynomus.smbj.session.Session
 import com.hierynomus.smbj.share.DiskShare
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.util.concurrent.TimeUnit
 
 class SmbProtocol(
     private val host: String,
@@ -31,17 +33,37 @@ class SmbProtocol(
             return@withContext currentSession
         }
 
-        val c = SMBClient()
-        val s = c.connect(host, port)
-        val auth = AuthenticationContext(username, password.toCharArray(), domain)
-        val sess = s.authenticate(auth)
+        val config = SmbConfig.builder()
+            .withTimeout(10000, TimeUnit.MILLISECONDS)
+            .withSoTimeout(10000, TimeUnit.MILLISECONDS)
+            .build()
+        val c = SMBClient(config)
         
+        val conn = try {
+            c.connect(host, port)
+        } catch (e: Exception) {
+            throw Exception("SMB connection to $host:$port failed: ${e.localizedMessage}")
+        }
+
+        val auth = AuthenticationContext(username, password.toCharArray(), domain)
+        val sess = try {
+            conn.authenticate(auth)
+        } catch (e: Exception) {
+            conn.close()
+            throw Exception("SMB authentication failed for user '$username': ${e.localizedMessage}")
+        }
+
         client = c
         session = sess
         sess
     }
 
-    override suspend fun testConnection() { getSession() }
+    override suspend fun testConnection() {
+        val sess = getSession()
+        if (!sess.connection.isConnected) {
+            throw Exception("SMB connection check failed")
+        }
+    }
     override suspend fun listFiles(path: String): List<RemoteFile> = withContext(Dispatchers.IO) {
         val sess = getSession()
         

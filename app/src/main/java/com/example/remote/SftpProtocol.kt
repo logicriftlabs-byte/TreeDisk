@@ -27,21 +27,45 @@ class SftpProtocol(
         val jsch = JSch()
         val s = jsch.getSession(username, host, port)
         s.setPassword(password)
+        s.timeout = 10000
         
         val config = Properties()
         config["StrictHostKeyChecking"] = "no"
         s.setConfig(config)
         
-        s.connect()
+        try {
+            s.connect(10000)
+        } catch (e: Exception) {
+            throw Exception("SFTP connection to $host:$port failed: ${e.localizedMessage}")
+        }
         session = s
         
-        val c = s.openChannel("sftp") as ChannelSftp
-        c.connect()
+        val c = try {
+            s.openChannel("sftp") as ChannelSftp
+        } catch (e: Exception) {
+            s.disconnect()
+            throw Exception("Failed to open SFTP channel on $host:$port: ${e.localizedMessage}")
+        }
+
+        try {
+            c.connect(10000)
+        } catch (e: Exception) {
+            s.disconnect()
+            throw Exception("Failed to connect SFTP channel on $host:$port: ${e.localizedMessage}")
+        }
+
         channel = c
         c
     }
 
-    override suspend fun testConnection() { connect() }
+    override suspend fun testConnection() {
+        val c = connect()
+        try {
+            c.pwd()
+        } catch (e: Exception) {
+            throw Exception("Connected to $host:$port, but SFTP subsystem test failed: ${e.localizedMessage}")
+        }
+    }
     override suspend fun listFiles(path: String): List<RemoteFile> = withContext(Dispatchers.IO) {
         val c = connect()
         val vector = c.ls(path) as Vector<ChannelSftp.LsEntry>
