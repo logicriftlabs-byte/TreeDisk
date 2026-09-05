@@ -482,13 +482,28 @@ private val _rootNode = MutableStateFlow<StorageNode.DirectoryNode?>(null)
     }
 
     fun copyNodes(nodes: List<StorageNode>, targetDirPath: String, onResult: (Boolean, String) -> Unit = { _, _ -> }) {
+        val targetDir = File(targetDirPath)
+        val targetCanonicalPath = try { targetDir.canonicalPath } catch (_: Exception) { targetDir.absolutePath }
+
+        for (node in nodes) {
+            if (node is StorageNode.DirectoryNode) {
+                val srcFile = node.file
+                if (srcFile != null) {
+                    val srcFolderPath = try { srcFile.canonicalPath } catch (_: Exception) { srcFile.absolutePath }
+                    if (targetCanonicalPath == srcFolderPath || targetCanonicalPath.startsWith(srcFolderPath + File.separator)) {
+                        onResult(false, "Cannot copy folder '${node.name}' into itself or one of its subfolders.")
+                        return
+                    }
+                }
+            }
+        }
+
         viewModelScope.launch {
             _isScanning.value = true
             var successCount = 0
             var failCount = 0
 
             withContext(Dispatchers.IO) {
-                val targetDir = File(targetDirPath)
                 if (!targetDir.exists()) {
                     targetDir.mkdirs()
                 }
@@ -523,13 +538,34 @@ private val _rootNode = MutableStateFlow<StorageNode.DirectoryNode?>(null)
     }
 
     fun moveNodes(nodes: List<StorageNode>, targetDirPath: String, onResult: (Boolean, String) -> Unit = { _, _ -> }) {
+        val targetDir = File(targetDirPath)
+        val targetCanonicalPath = try { targetDir.canonicalPath } catch (_: Exception) { targetDir.absolutePath }
+
+        for (node in nodes) {
+            val srcFile = (node as? StorageNode.FileNode)?.file ?: (node as? StorageNode.DirectoryNode)?.file
+            if (srcFile != null) {
+                val srcParentPath = try { srcFile.parentFile?.canonicalPath ?: "" } catch (_: Exception) { srcFile.parent ?: "" }
+                if (srcParentPath == targetCanonicalPath) {
+                    onResult(false, "Cannot move '${node.name}' to the same directory.")
+                    return
+                }
+
+                if (node is StorageNode.DirectoryNode) {
+                    val srcFolderPath = try { srcFile.canonicalPath } catch (_: Exception) { srcFile.absolutePath }
+                    if (targetCanonicalPath == srcFolderPath || targetCanonicalPath.startsWith(srcFolderPath + File.separator)) {
+                        onResult(false, "Cannot move folder '${node.name}' into itself or one of its subfolders.")
+                        return
+                    }
+                }
+            }
+        }
+
         viewModelScope.launch {
             _isScanning.value = true
             var successCount = 0
             var failCount = 0
 
             withContext(Dispatchers.IO) {
-                val targetDir = File(targetDirPath)
                 if (!targetDir.exists()) {
                     targetDir.mkdirs()
                 }

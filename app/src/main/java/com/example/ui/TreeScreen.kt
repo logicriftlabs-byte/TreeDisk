@@ -45,7 +45,6 @@ import com.example.StorageViewModel
 import com.example.Utils
 import com.example.data.RemoteConnection
 import com.example.ui.theme.*
-import com.example.ui.StorageFilterConfig
 import com.example.ui.filterAndSortTree
 import com.example.ui.countNodes
 import com.example.ui.SortDropdownMenu
@@ -972,73 +971,215 @@ fun TreeScreen(viewModel: StorageViewModel, onOpenDashboard: () -> Unit = {}, on
 
     if (showDestinationDialog) {
         val topPaths = getTopLevelSelectedPaths(selectedPaths)
-        val defaultDest = rootNode?.path ?: Environment.getExternalStorageDirectory().absolutePath
-        var targetPath by remember { mutableStateOf(defaultDest) }
-
-        AlertDialog(
-            onDismissRequest = { showDestinationDialog = false },
-            title = { Text(if (isCopyOperation) "Copy ${topPaths.size} item(s) to" else "Move ${topPaths.size} item(s) to") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = if (isCopyOperation)
-                            "Enter destination folder path for copying ${topPaths.size} item(s):"
-                        else
-                            "Enter destination folder path for moving ${topPaths.size} item(s):",
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    OutlinedTextField(
-                        value = targetPath,
-                        onValueChange = { targetPath = it },
-                        label = { Text("Destination Directory") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
+        DestinationFolderPickerDialog(
+            rootNode = rootNode,
+            isCopy = isCopyOperation,
+            itemCount = topPaths.size,
+            onDismiss = { showDestinationDialog = false },
+            onConfirm = { targetPath ->
+                val nodesToProcess = mutableListOf<StorageNode>()
+                fun findNodesByPaths(current: StorageNode, paths: Set<String>) {
+                    if (paths.contains(current.path)) {
+                        nodesToProcess.add(current)
+                    } else if (current is StorageNode.DirectoryNode) {
+                        for (child in current.children) {
+                            findNodesByPaths(child, paths)
+                        }
+                    }
                 }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val nodesToProcess = mutableListOf<StorageNode>()
-                        fun findNodesByPaths(current: StorageNode, paths: Set<String>) {
-                            if (paths.contains(current.path)) {
-                                nodesToProcess.add(current)
-                            } else if (current is StorageNode.DirectoryNode) {
-                                for (child in current.children) {
-                                    findNodesByPaths(child, paths)
-                                }
+                rootNode?.let { findNodesByPaths(it, topPaths) }
+
+                if (nodesToProcess.isNotEmpty()) {
+                    if (isCopyOperation) {
+                        viewModel.copyNodes(nodesToProcess, targetPath) { success, msg ->
+                            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                            if (success) {
+                                selectedPaths.clear()
+                                isSelectionMode = false
+                                showDestinationDialog = false
                             }
                         }
-                        rootNode?.let { findNodesByPaths(it, topPaths) }
-
-                        if (nodesToProcess.isNotEmpty()) {
-                            if (isCopyOperation) {
-                                viewModel.copyNodes(nodesToProcess, targetPath) { _, msg ->
-                                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-                                }
-                            } else {
-                                viewModel.moveNodes(nodesToProcess, targetPath) { _, msg ->
-                                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-                                }
+                    } else {
+                        viewModel.moveNodes(nodesToProcess, targetPath) { success, msg ->
+                            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                            if (success) {
+                                selectedPaths.clear()
+                                isSelectionMode = false
+                                showDestinationDialog = false
                             }
                         }
-                        selectedPaths.clear()
-                        isSelectionMode = false
-                        showDestinationDialog = false
-                    },
-                    enabled = targetPath.isNotBlank()
-                ) {
-                    Text(if (isCopyOperation) "Copy" else "Move")
+                    }
                 }
             },
-            dismissButton = {
-                TextButton(onClick = { showDestinationDialog = false }) {
-                    Text("Cancel")
-                }
+            onToggleFolder = { folder ->
+                viewModel.toggleNode(folder)
             }
         )
     }
+}
+
+data class FlatDirNode(val node: StorageNode.DirectoryNode, val level: Int)
+
+fun flattenDirectoryTree(node: StorageNode.DirectoryNode, level: Int): List<FlatDirNode> {
+    val list = mutableListOf<FlatDirNode>()
+    list.add(FlatDirNode(node, level))
+    if (node.isExpanded) {
+        for (child in node.children.filterIsInstance<StorageNode.DirectoryNode>()) {
+            list.addAll(flattenDirectoryTree(child, level + 1))
+        }
+    }
+    return list
+}
+
+@Composable
+fun DestinationFolderPickerDialog(
+    rootNode: StorageNode.DirectoryNode?,
+    isCopy: Boolean,
+    itemCount: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (targetPath: String) -> Unit,
+    onToggleFolder: (StorageNode.DirectoryNode) -> Unit
+) {
+    var selectedPath by remember { mutableStateOf(rootNode?.path ?: Environment.getExternalStorageDirectory().absolutePath) }
+    val flatDirs = remember(rootNode) {
+        rootNode?.let { flattenDirectoryTree(it, 0) } ?: emptyList()
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = if (isCopy) "Copy $itemCount item(s) to" else "Move $itemCount item(s) to",
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 360.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Currently Selected Target Display
+                Surface(
+                    color = AppleBlue.copy(alpha = 0.12f),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, AppleBlue.copy(alpha = 0.3f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        Text(
+                            text = "TARGET DESTINATION",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AppleBlue
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = selectedPath,
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                Text(
+                    text = "Browse & select a destination folder below:",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                // Directory Tree Browser
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                ) {
+                    if (flatDirs.isEmpty()) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("No folders available", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(vertical = 6.dp)
+                        ) {
+                            items(flatDirs, key = { it.node.path }) { dirNode ->
+                                val isSelected = dirNode.node.path == selectedPath
+                                val paddingStart = 12.dp + (dirNode.level * 16).dp
+
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(if (isSelected) AppleBlue.copy(alpha = 0.2f) else Color.Transparent)
+                                        .clickable { selectedPath = dirNode.node.path }
+                                        .padding(start = paddingStart, end = 12.dp, top = 8.dp, bottom = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ChevronRight,
+                                        contentDescription = null,
+                                        tint = AppleBlue,
+                                        modifier = Modifier
+                                            .size(16.dp)
+                                            .rotate(if (dirNode.node.isExpanded) 90f else 0f)
+                                            .clickable { onToggleFolder(dirNode.node) }
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Icon(
+                                        imageVector = if (dirNode.node.isExpanded) Icons.Default.FolderOpen else Icons.Default.Folder,
+                                        contentDescription = null,
+                                        tint = AppleYellow,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = dirNode.node.name,
+                                        fontSize = 13.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) AppleBlue else MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    if (isSelected) {
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = "Selected",
+                                            tint = AppleBlue,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(selectedPath) },
+                enabled = selectedPath.isNotBlank()
+            ) {
+                Text(if (isCopy) "Copy Here" else "Move Here")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 @Composable
