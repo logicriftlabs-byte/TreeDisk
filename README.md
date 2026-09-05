@@ -1,22 +1,68 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# NucleusFS 📁⚡
 
-# Run and deploy your AI Studio app
+**NucleusFS** is a high-performance Android storage analyzer, remote cloud file manager, and AI directory organizer built with modern **Jetpack Compose** and Material 3 design.
 
-This contains everything you need to run your app locally.
+---
 
-View your app in AI Studio: https://ai.studio/apps/f732e126-2665-4f93-b1c4-965b46514109
+## ✨ Features
 
-## Run Locally
+### 📊 Storage Analytics & Overview
+- **Visual Storage Breakdown**: Interactive donut charts and category distributions (Videos, Images, Documents, Audio, Apps, Archives, System).
+- **Storage Diagnostics**: Dynamic usage tracking and capacity health indicators (**Optimal**, **Warning**, **Critical**).
+- **Largest Indexed Files**: Detects storage-hogging files across local and connected storage nodes.
 
-**Prerequisites:**  [Android Studio](https://developer.android.com/studio)
+### 🌐 Remote Cloud Storage Integration
+- **Multi-Protocol Support**: Native support for **SFTP**, **FTP**, and **SMB** (Windows Network Share) remote protocols.
+- **Encrypted Credential Storage**: Secure credential persistence powered by **DataStore** and **Android KeyStore**.
+- **Live Status & Connectivity Checks**: Real-time status monitoring (**Online**, **Connecting**, **Offline**) with explicit protocol timeouts (10s) and error retry views.
+- **Connection Management**: Manage, test, edit, and create connections seamlessly.
 
+### 🎯 Multi-Selection & Batch Operations
+- **Multi-Selection Mode**: Select files and folders via the long-press context menu (*"Select"*).
+- **Hierarchical Sub-Item Selection**: Selecting a folder automatically includes all nested files and sub-folders (including hidden items).
+- **Optimized Background Operations**: Batch operations (Copy, Move, Delete) process top-level parent folders directly to optimize file system performance.
+- **Interactive Folder Browser**: Visual expandable directory tree browser for choosing Copy To and Move To destinations.
+- **Validation & Safety Rules**: Built-in protection against moving files into the same directory or moving/copying folders into themselves or their subfolders.
 
-1. Open Android Studio
-2. Select **Open** and choose the directory containing this project
-3. Allow Android Studio to fix any incompatibilities as it imports the project.
-4. Create a file named `.env` in the project directory and set `GEMINI_API_KEY` in that file to your Gemini API key (see `.env.example` for an example)
-5. Remove this line from the app's `build.gradle.kts` file: `signingConfig = signingConfigs.getByName("debugConfig")`
-6. Run the app on an emulator or physical device
-7. If you have already published your app in AI Studio, please [request upload key reset](https://support.google.com/googleplay/android-developer/answer/9842756#zippy=%2Crequest-an-upload-key-reset) in Google Play Console.
+### 🤖 AI Directory Assistant
+- **Smart Folder Cleanup**: Categorizes local downloads and unorganized folders using Google Gemini AI.
+
+---
+
+## 🛠 Tech Stack & Libraries
+
+- **UI Framework**: [Jetpack Compose](https://developer.android.com/jetpack/compose) with Material 3 design system
+- **Language**: 100% [Kotlin](https://kotlinlang.org/) with Coroutines & StateFlow
+- **Encrypted Storage**: AndroidX DataStore + KeyStore encryption
+- **SFTP Protocol**: [JSch](http://www.jcraft.com/jsch/)
+- **FTP Protocol**: [Apache Commons Net](https://commons.apache.org/proper/commons-net/)
+- **SMB Protocol**: [SMBJ](https://github.com/hierynomus/smbj)
+- **AI Integration**: [Google Gemini API](https://ai.google.dev/)
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- **Android Studio**: Ladybug / Jellyfish or newer
+- **JDK**: Version 17+
+- **Minimum SDK**: API 26 (Android 8.0)
+- **Target SDK**: API 35 (Android 15)
+
+### Building & Running
+
+1. Clone the repository and open the project in Android Studio.
+2. Build the debug APK:
+   ```bash
+   ./gradlew app:assembleDebug
+   ```
+3. Run unit tests:
+   ```bash
+   ./gradlew app:testDebugUnitTest
+   ```
+
+---
+
+## 📄 License & Privacy
+- **100% On-Device Processing**: Local file indexing and operations run completely on-device.
+- **Ad-Free**: Zero third-party ad networks or tracking SDKs.

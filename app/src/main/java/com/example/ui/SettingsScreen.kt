@@ -565,19 +565,20 @@ fun SettingsScreen(
             AlertDialog(
                 onDismissRequest = { showAboutDialog = false },
                 icon = { Icon(Icons.Default.Storage, contentDescription = null, tint = AppleBlue) },
-                title = { Text("TreeDisk v1.2.0") },
+                title = { Text("NucleusFS v4.0", fontWeight = FontWeight.Bold) },
                 text = {
                     Column {
                         Text(
-                            text = "TreeDisk is a modern storage visualizer with Cupertino design elements, powered by Jetpack Compose.",
-                            fontSize = 14.sp,
+                            text = "NucleusFS is a high-performance Android storage analyzer, remote cloud file manager, and AI directory organizer built with Jetpack Compose.",
+                            fontSize = 13.sp,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "• Interactive Directory Tree\n• Category Breakdown\n• Floating Glass Navigation Bar\n• Apple SF System Styling",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = "• SFTP, FTP & SMB Remote Cloud Storage Integration\n• Live Connection Status & Diagnostic Tracking\n• Interactive Directory Tree & Multi-Selection\n• Batch Copy, Move & Delete with Folder Tree Browsing\n• AI-Powered Storage Cleaning & Category Analytics\n• Adaptive Dark & Light Material 3 Theme Design",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 18.sp
                         )
                     }
                 },
