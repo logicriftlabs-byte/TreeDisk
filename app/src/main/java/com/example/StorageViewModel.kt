@@ -445,6 +445,42 @@ private val _rootNode = MutableStateFlow<StorageNode.DirectoryNode?>(null)
         }
     }
 
+    fun deleteNodes(nodes: List<StorageNode>, onResult: (Boolean, String) -> Unit = { _, _ -> }) {
+        viewModelScope.launch {
+            _isScanning.value = true
+            var successCount = 0
+            var failCount = 0
+
+            withContext(Dispatchers.IO) {
+                nodes.forEach { node ->
+                    try {
+                        val file = (node as? StorageNode.FileNode)?.file ?: (node as? StorageNode.DirectoryNode)?.file
+                        if (file != null && file.exists()) {
+                            if (file.deleteRecursively()) {
+                                successCount++
+                            } else {
+                                failCount++
+                            }
+                        } else {
+                            successCount++
+                        }
+                    } catch (_: Exception) {
+                        failCount++
+                    }
+                }
+            }
+
+            if (failCount == 0) {
+                onResult(true, "Successfully deleted $successCount item(s)")
+            } else {
+                onResult(false, "Deleted $successCount item(s), $failCount failed")
+            }
+
+            val preservedPaths = _rootNode.value?.let { getExpandedPaths(it) }
+            scanStorage(preservedPaths)
+        }
+    }
+
     fun testConnection(connection: RemoteConnection, onResult: (Boolean, String?) -> Unit) {
         viewModelScope.launch {
             try {

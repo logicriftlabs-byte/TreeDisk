@@ -44,7 +44,6 @@ import com.example.StorageViewModel
 import com.example.Utils
 import com.example.data.RemoteConnection
 import com.example.ui.theme.*
-import com.example.ui.StorageSortOption
 import com.example.ui.ItemTypeFilter
 import com.example.ui.FileSizeFilter
 import com.example.ui.StorageFilterConfig
@@ -52,6 +51,26 @@ import com.example.ui.filterAndSortTree
 import com.example.ui.countNodes
 import com.example.ui.SortDropdownMenu
 import com.example.ui.FilterDialog
+
+fun getAllNodePaths(node: StorageNode): Set<String> {
+    val paths = mutableSetOf<String>()
+    paths.add(node.path)
+    if (node is StorageNode.DirectoryNode) {
+        for (child in node.children) {
+            paths.addAll(getAllNodePaths(child))
+        }
+    }
+    return paths
+}
+
+fun getTopLevelSelectedPaths(selectedPaths: List<String>): Set<String> {
+    val set = selectedPaths.toSet()
+    return set.filter { path ->
+        set.none { other ->
+            other != path && path.startsWith(if (other.endsWith("/")) other else "$other/")
+        }
+    }.toSet()
+}
 
 @Composable
 fun TreeScreen(viewModel: StorageViewModel, onOpenDashboard: () -> Unit = {}, onOpenSettings: () -> Unit = {}) {
@@ -91,6 +110,10 @@ fun TreeScreen(viewModel: StorageViewModel, onOpenDashboard: () -> Unit = {}, on
 
     val listState = rememberLazyListState()
 
+    var isSelectionMode by remember { mutableStateOf(false) }
+    val selectedPaths = remember { mutableStateListOf<String>() }
+    var showBatchDeleteConfirmDialog by remember { mutableStateOf(false) }
+
     var selectedNodeForMenu by remember { mutableStateOf<StorageNode?>(null) }
     var selectedNodeForDelete by remember { mutableStateOf<StorageNode?>(null) }
     var showAddRemoteDialog by remember { mutableStateOf(false) }
@@ -108,6 +131,11 @@ fun TreeScreen(viewModel: StorageViewModel, onOpenDashboard: () -> Unit = {}, on
         WindowsContextMenuPopup(
             node = node,
             onDismiss = { selectedNodeForMenu = null },
+            onSelectRequest = { selectedNode ->
+                isSelectionMode = true
+                val paths = getAllNodePaths(selectedNode)
+                paths.forEach { p -> if (!selectedPaths.contains(p)) selectedPaths.add(p) }
+            },
             onExpandToggle = { folder ->
                 viewModel.toggleNode(folder)
             },
@@ -227,6 +255,79 @@ fun TreeScreen(viewModel: StorageViewModel, onOpenDashboard: () -> Unit = {}, on
     Scaffold(
         topBar = {
             Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)) {
+                // Selection Mode Banner
+                AnimatedVisibility(
+                    visible = isSelectionMode,
+                    enter = expandVertically() + fadeIn(),
+                    exit = shrinkVertically() + fadeOut()
+                ) {
+                    val topSelectedCount = getTopLevelSelectedPaths(selectedPaths).size
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.95f),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, AppleBlue.copy(alpha = 0.4f))
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(onClick = {
+                                    isSelectionMode = false
+                                    selectedPaths.clear()
+                                }) {
+                                    Icon(Icons.Default.Close, contentDescription = "Exit Selection", tint = MaterialTheme.colorScheme.onSurface)
+                                }
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Column {
+                                    Text(
+                                        text = "$topSelectedCount item(s) selected",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "${selectedPaths.size} total including contents",
+                                        fontSize = 10.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                TextButton(onClick = {
+                                    processedRootNode?.let { root ->
+                                        val allPaths = getAllNodePaths(root)
+                                        if (selectedPaths.size >= allPaths.size) {
+                                            selectedPaths.clear()
+                                        } else {
+                                            allPaths.forEach { p -> if (!selectedPaths.contains(p)) selectedPaths.add(p) }
+                                        }
+                                    }
+                                }) {
+                                    val allPathsCount = processedRootNode?.let { getAllNodePaths(it).size } ?: 0
+                                    val isAllSelected = selectedPaths.size >= allPathsCount && allPathsCount > 0
+                                    Text(if (isAllSelected) "Deselect All" else "Select All", fontSize = 12.sp, color = AppleBlue)
+                                }
+
+                                if (topSelectedCount > 0) {
+                                    IconButton(onClick = {
+                                        showBatchDeleteConfirmDialog = true
+                                    }) {
+                                        Icon(Icons.Default.Delete, contentDescription = "Delete Selected", tint = AppleRed)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // Top header
                 Box(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp).statusBarsPadding(),
@@ -635,9 +736,20 @@ fun TreeScreen(viewModel: StorageViewModel, onOpenDashboard: () -> Unit = {}, on
                     items = flatList,
                     key = { it.node.path }
                 ) { flatNode ->
+                    val isChecked = selectedPaths.contains(flatNode.node.path)
                     AppleStorageNodeRow(
                         node = flatNode.node,
                         level = flatNode.level,
+                        isSelectionMode = isSelectionMode,
+                        isChecked = isChecked,
+                        onCheckedChange = { checked ->
+                            val nodePaths = getAllNodePaths(flatNode.node)
+                            if (checked) {
+                                nodePaths.forEach { p -> if (!selectedPaths.contains(p)) selectedPaths.add(p) }
+                            } else {
+                                selectedPaths.removeAll(nodePaths)
+                            }
+                        },
                         modifier = Modifier.animateItem(
                             fadeInSpec = spring(stiffness = Spring.StiffnessMediumLow),
                             fadeOutSpec = spring(stiffness = Spring.StiffnessMediumLow),
@@ -661,6 +773,54 @@ fun TreeScreen(viewModel: StorageViewModel, onOpenDashboard: () -> Unit = {}, on
                 }
             }
         }
+    }
+
+    if (showBatchDeleteConfirmDialog) {
+        val topPaths = getTopLevelSelectedPaths(selectedPaths)
+        AlertDialog(
+            onDismissRequest = { showBatchDeleteConfirmDialog = false },
+            icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = AppleRed) },
+            title = { Text("Delete ${topPaths.size} selected item(s)?") },
+            text = {
+                Text(
+                    "Are you sure you want to delete ${topPaths.size} selected item(s)? Folders and all their contents will be removed."
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val nodesToDelete = mutableListOf<StorageNode>()
+                        fun findNodesByPaths(current: StorageNode, paths: Set<String>) {
+                            if (paths.contains(current.path)) {
+                                nodesToDelete.add(current)
+                            } else if (current is StorageNode.DirectoryNode) {
+                                for (child in current.children) {
+                                    findNodesByPaths(child, paths)
+                                }
+                            }
+                        }
+                        rootNode?.let { findNodesByPaths(it, topPaths) }
+
+                        if (nodesToDelete.isNotEmpty()) {
+                            viewModel.deleteNodes(nodesToDelete) { _, msg ->
+                                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                        selectedPaths.clear()
+                        isSelectionMode = false
+                        showBatchDeleteConfirmDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AppleRed)
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showBatchDeleteConfirmDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 
@@ -753,6 +913,9 @@ fun flattenTree(node: StorageNode, level: Int, autoExpand: Boolean = false): Lis
 fun AppleStorageNodeRow(
     node: StorageNode,
     level: Int,
+    isSelectionMode: Boolean = false,
+    isChecked: Boolean = false,
+    onCheckedChange: ((Boolean) -> Unit)? = null,
     onToggle: (StorageNode) -> Unit,
     onLongPress: (StorageNode) -> Unit,
     modifier: Modifier = Modifier
@@ -774,9 +937,12 @@ fun AppleStorageNodeRow(
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 2.dp)
             .clip(RoundedCornerShape(12.dp))
+            .background(if (isSelectionMode && isChecked) AppleBlue.copy(alpha = 0.12f) else Color.Transparent)
             .combinedClickable(
                 onClick = {
-                    if (node is StorageNode.FileNode) {
+                    if (isSelectionMode) {
+                        onCheckedChange?.invoke(!isChecked)
+                    } else if (node is StorageNode.FileNode) {
                         openFile(context, node.file)
                     } else {
                         onToggle(node)
@@ -787,12 +953,30 @@ fun AppleStorageNodeRow(
             .padding(start = paddingStart, end = 16.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        if (isSelectionMode) {
+            Checkbox(
+                checked = isChecked,
+                onCheckedChange = { checked ->
+                    onCheckedChange?.invoke(checked)
+                },
+                colors = CheckboxDefaults.colors(
+                    checkedColor = AppleBlue,
+                    uncheckedColor = MaterialTheme.colorScheme.onSurfaceVariant
+                ),
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+        }
+
         if (isDirectory) {
             Icon(
                 imageVector = Icons.Default.ChevronRight,
                 contentDescription = null,
                 tint = AppleBlue,
-                modifier = Modifier.size(16.dp).rotate(chevronRotation)
+                modifier = Modifier
+                    .size(16.dp)
+                    .rotate(chevronRotation)
+                    .clickable { onToggle(node) }
             )
             Spacer(modifier = Modifier.width(6.dp))
         } else {

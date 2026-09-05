@@ -16,6 +16,7 @@ import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.automirrored.filled.NoteAdd
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.CheckCircleOutline
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Folder
@@ -84,6 +85,7 @@ fun openFile(context: Context, file: File?) {
 fun WindowsContextMenuPopup(
     node: StorageNode,
     onDismiss: () -> Unit,
+    onSelectRequest: ((StorageNode) -> Unit)? = null,
     onExpandToggle: ((StorageNode.DirectoryNode) -> Unit)? = null,
     onOrganizeRequest: ((StorageNode.DirectoryNode) -> Unit)? = null,
     onCreateRequest: ((StorageNode.DirectoryNode, Boolean) -> Unit)? = null,
@@ -164,6 +166,17 @@ fun WindowsContextMenuPopup(
                     HorizontalDivider(
                         color = winDivider,
                         modifier = Modifier.padding(vertical = 4.dp)
+                    )
+
+                    WindowsContextMenuItem(
+                        icon = Icons.Default.CheckCircleOutline,
+                        label = "Select",
+                        textColor = winTextColor,
+                        hoverColor = winHoverBg,
+                        onClick = {
+                            onDismiss()
+                            onSelectRequest?.invoke(node)
+                        }
                     )
 
                     // Actions depending on File vs Folder
