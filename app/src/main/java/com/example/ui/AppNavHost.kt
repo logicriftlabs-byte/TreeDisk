@@ -12,16 +12,10 @@ import androidx.compose.ui.zIndex
 import com.example.StorageViewModel
 import androidx.activity.compose.BackHandler
 
-import androidx.compose.runtime.saveable.rememberSaveable
-
 @Composable
 fun MainApp(viewModel: StorageViewModel) {
     var showDashboard by remember { mutableStateOf(value = false) }
     var showSettings by remember { mutableStateOf(value = false) }
-
-    // Ask to download Gemini Nano model on first app load
-    var showNanoDownload by rememberSaveable { mutableStateOf(value = true) }
-    var nanoModelReady by rememberSaveable { mutableStateOf(value = false) }
 
     BackHandler(enabled = showDashboard || showSettings) {
         if (showSettings) {
@@ -37,16 +31,6 @@ fun MainApp(viewModel: StorageViewModel) {
             onOpenDashboard = { showDashboard = true },
             onOpenSettings = { showSettings = true },
         )
-        
-        if (showNanoDownload) {
-            GeminiNanoDownloadDialog(
-                onDismiss = { showNanoDownload = false },
-                onDownloadComplete = { 
-                    nanoModelReady = true 
-                    // Tell ViewModel or Assistant that model is ready
-                },
-            )
-        }
         
         AnimatedVisibility(
             visible = showDashboard,

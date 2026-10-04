@@ -10,7 +10,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CleaningServices
+import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.FolderSpecial
@@ -52,6 +54,7 @@ fun SettingsScreen(
 
     var showClearDialog by remember { mutableStateOf(value = false) }
     var showAboutDialog by remember { mutableStateOf(value = false) }
+    var showNanoDownloadDialog by remember { mutableStateOf(value = false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -318,7 +321,76 @@ fun SettingsScreen(
                 }
             }
 
-            // Section 3: MAINTENANCE & ACTIONS
+            // Section 3: ON-DEVICE AI MODEL
+            item {
+                Spacer(modifier = Modifier.height(24.dp))
+                CupertinoSectionHeader("ON-DEVICE AI MODEL")
+
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(22.dp))
+                        .border(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(22.dp)
+                        ),
+                    shape = RoundedCornerShape(22.dp),
+                    color = MaterialTheme.colorScheme.surface
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable { showNanoDownloadDialog = true }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(RoundedCornerShape(9.dp))
+                                        .background(ApplePurple.copy(alpha = 0.15f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.AutoAwesome,
+                                        contentDescription = null,
+                                        tint = ApplePurple,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(
+                                        text = "Download Gemini Nano Model",
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "Offline AI for file organization (~1GB)",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+
+                            Icon(
+                                imageVector = Icons.Default.CloudDownload,
+                                contentDescription = "Download Model",
+                                tint = ApplePurple,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Section 4: MAINTENANCE & ACTIONS
             item {
                 Spacer(modifier = Modifier.height(24.dp))
                 CupertinoSectionHeader("MAINTENANCE")
@@ -513,7 +585,7 @@ fun SettingsScreen(
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
-                                        text = "Version 4.0 • Jetpack Compose",
+                                        text = "Version 4.1 • Jetpack Compose",
                                         fontSize = 12.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -565,7 +637,7 @@ fun SettingsScreen(
             AlertDialog(
                 onDismissRequest = { showAboutDialog = false },
                 icon = { Icon(Icons.Default.Storage, contentDescription = null, tint = AppleBlue) },
-                title = { Text("NucleusFS v4.0", fontWeight = FontWeight.Bold) },
+                title = { Text("NucleusFS v4.1", fontWeight = FontWeight.Bold) },
                 text = {
                     Column {
                         Text(
@@ -585,6 +657,17 @@ fun SettingsScreen(
                 confirmButton = {
                     Button(onClick = { showAboutDialog = false }) {
                         Text("Close")
+                    }
+                }
+            )
+        }
+
+        if (showNanoDownloadDialog) {
+            GeminiNanoDownloadDialog(
+                onDismiss = { showNanoDownloadDialog = false },
+                onDownloadComplete = {
+                    scope.launch {
+                        snackbarHostState.showSnackbar("Gemini Nano AI model downloaded & ready!")
                     }
                 }
             )
